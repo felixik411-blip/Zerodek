@@ -20,6 +20,8 @@ const nextConfig: NextConfig = {
     "react-native-web",
     "react-native-safe-area-context",
     "@expo/vector-icons",
+    "expo-document-picker",
+    "expo-modules-core",
   ],
 
   // Turbopack (default dev bundler in Next 16)

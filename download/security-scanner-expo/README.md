@@ -1,9 +1,10 @@
-# Security Scanner — Screens 1 & 2 (Expo + React Native)
+# Security Scanner — Screens 1–3 (Expo + React Native)
 
-The first two screens of the Android security scanner:
+The first three screens of the Android security scanner:
 
 1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
+3. **File-selection screen** — `SecurityScannerFileSelectionScreen.tsx`, byte-identical to the design hand-off (`upload/3.md`). Sample file list with tabs, row selection, "Browse device" via the native document picker, and honest scanner notices.
 
 ## Run it
 
@@ -13,16 +14,21 @@ npx expo install --fix   # aligns library versions with the installed Expo SDK
 npx expo start           # scan the QR code with the Expo Go app, or press `a` for Android
 ```
 
-By default `App.tsx` shows the welcome screen. To preview the dashboard instead,
-swap the import:
+By default `App.tsx` shows the welcome screen. To preview the dashboard or the
+file-selection screen instead, swap the import:
 
 ```tsx
 import SecurityScannerDashboard from './SecurityScannerDashboard';
+// or
+import SecurityScannerFileSelectionScreen from './SecurityScannerFileSelectionScreen';
 
 export default function App() {
-  return <SecurityScannerDashboard />;
+  return <SecurityScannerDashboard />; // or <SecurityScannerFileSelectionScreen />
 }
 ```
+
+Keep `import './glyphPatches';` as the first import in `App.tsx` (see
+"Known notes" below).
 
 ## Files
 
@@ -30,10 +36,12 @@ export default function App() {
 | --- | --- |
 | `SecurityScannerWelcomeScreen.tsx` | Screen 1: welcome (hand-off design + interactive states) |
 | `SecurityScannerDashboard.tsx` | Screen 2: dashboard (hand-off Home + real History/Quarantine/Settings sub-screens) |
-| `App.tsx` | Renders the welcome screen (swap to preview the dashboard) |
+| `SecurityScannerFileSelectionScreen.tsx` | Screen 3: file selection (byte-identical to the hand-off) |
+| `glyphPatches.ts` | Icon glyph alias (`file-archive` → `zip-box`), imported first in `App.tsx` |
+| `App.tsx` | Renders the welcome screen (swap to preview the dashboard or file selection) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
-| `package.json` | Dependencies (Expo SDK 58 aligned) |
+| `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`) |
 
 ## Dashboard scope
 
@@ -67,6 +75,37 @@ notification controls work locally but are not persisted yet.
 - The sidebar appears on wide layouts (width ≥ 1100); on narrow layouts the
   brand moves into the top bar and navigation moves to the bottom tab bar.
 - The scan table contains sample data matching the reference design.
+
+## File-selection screen (screen 3)
+
+Byte-identical to the hand-off. What it does:
+
+- **Tabs** — Recent files / Documents / Images / Downloads, each with its own
+  sample rows; switching tabs clears the selection.
+- **Row selection** — tapping a row highlights it and shows the radio dot plus
+  a "Selected: <name>" chip.
+- **Browse device** — opens the native document picker (`expo-document-picker`,
+  already added to `package.json`; `npx expo install --fix` will align it).
+  Picking a file selects it and shows a confirmation message.
+- **Scan selected file** — with a selection it reports that the scanning
+  engine isn't connected yet ("Connect your scanning engine to perform an
+  actual threat scan."); with none it asks you to pick a file first. Nothing
+  is faked, per the product decisions doc.
+- **Cancel / Back to Home** — sidebar pages and Home are still placeholders in
+  this component; the hand-off shows a plain-language notice instead.
+- **Responsive** — sidebar on layouts ≥ 1000px wide; below that the brand
+  moves into the top bar.
+
+## Known notes
+
+- The hand-off references the icon name `file-archive`, which does not exist
+  in the MaterialCommunityIcons glyphmap (7,448 names checked — the closest
+  real glyph is `zip-box`). Without a fix the two ZIP rows render a "?"
+  fallback glyph. `glyphPatches.ts` (imported first in `App.tsx`) aliases
+  `file-archive` → `zip-box` at runtime so the intended archive icon renders,
+  **without touching the byte-identical screen code**. If you'd rather change
+  the design source, replace `'file-archive'` with `'zip-box'` in the screen
+  and delete the patch file.
 
 ## Welcome screen: interactive & UI states (added during review)
 
