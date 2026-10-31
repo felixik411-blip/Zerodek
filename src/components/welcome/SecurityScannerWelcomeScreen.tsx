@@ -1,12 +1,13 @@
 import React from 'react';
 import {
-  View,
-  Text,
+  ActivityIndicator,
   Pressable,
-  StyleSheet,
-  useWindowDimensions,
   ScrollView,
   StatusBar,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
@@ -88,13 +89,36 @@ function SecurityIllustration() {
   );
 }
 
+type GetStartedState = 'idle' | 'loading' | 'done';
+
 export default function SecurityScannerWelcomeScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
 
+  // Interactive states for the Get started button (design brief section 10A:
+  // "Show clear loading, empty, error, and confirmation states where relevant").
+  const [getStartedState, setGetStartedState] = React.useState<GetStartedState>('idle');
+  const [buttonFocused, setButtonFocused] = React.useState(false);
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
+
   const handleGetStarted = () => {
+    if (getStartedState === 'loading') {
+      return;
+    }
     // TODO: Navigate to your scanner/onboarding route when it exists.
     // Example: navigation.navigate('Scanner');
+    // Until that route exists, show an honest loading state followed by a
+    // confirmation state — the app must never pretend a step happened.
+    setGetStartedState('loading');
+    timerRef.current = setTimeout(() => setGetStartedState('done'), 1200);
   };
 
   return (
@@ -149,14 +173,32 @@ export default function SecurityScannerWelcomeScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Get started"
+              accessibilityState={{
+                busy: getStartedState === 'loading',
+                disabled: getStartedState === 'loading',
+              }}
               onPress={handleGetStarted}
+              onFocus={() => setButtonFocused(true)}
+              onBlur={() => setButtonFocused(false)}
+              disabled={getStartedState === 'loading'}
               style={({ pressed }) => [
                 styles.getStartedButton,
                 pressed && styles.getStartedButtonPressed,
+                buttonFocused && styles.getStartedButtonFocused,
+                getStartedState === 'loading' && styles.getStartedButtonLoading,
               ]}
             >
-              <Text style={styles.getStartedText}>Get started</Text>
-              <Feather name="arrow-right" size={28} color={C.white} />
+              {getStartedState === 'loading' ? (
+                <>
+                  <ActivityIndicator size="small" color={C.white} />
+                  <Text style={styles.getStartedText}>Getting started…</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.getStartedText}>Get started</Text>
+                  <Feather name="arrow-right" size={28} color={C.white} />
+                </>
+              )}
             </Pressable>
 
             <View style={styles.privacyNote}>
@@ -165,6 +207,21 @@ export default function SecurityScannerWelcomeScreen() {
                 Files stay on your phone by default.
               </Text>
             </View>
+
+            {getStartedState === 'done' && (
+              <View style={styles.nextStepCard} accessibilityRole="alert">
+                <View style={styles.nextStepIcon}>
+                  <MaterialCommunityIcons name="check" size={18} color={C.white} />
+                </View>
+                <View style={styles.nextStepCopy}>
+                  <Text style={styles.nextStepTitle}>You're all set for now</Text>
+                  <Text style={styles.nextStepBody}>
+                    The next step — the scanner screen — isn't connected in this
+                    preview yet.
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
 
           <View style={isWide ? styles.rightColumn : styles.mobileIllustration}>
@@ -319,10 +376,50 @@ const styles = StyleSheet.create({
     opacity: 0.86,
     transform: [{ scale: 0.99 }],
   },
+  getStartedButtonFocused: {
+    transform: [{ scale: 1.015 }],
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+  },
+  getStartedButtonLoading: {
+    opacity: 0.9,
+  },
   getStartedText: {
     color: C.white,
     fontSize: 18,
     fontWeight: '700',
+  },
+  nextStepCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 11,
+    marginTop: 18,
+    backgroundColor: C.blueLight,
+    borderRadius: 14,
+    padding: 14,
+  },
+  nextStepIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: C.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  nextStepCopy: {
+    flex: 1,
+  },
+  nextStepTitle: {
+    color: C.text,
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 3,
+  },
+  nextStepBody: {
+    color: C.muted,
+    fontSize: 14,
+    lineHeight: 21,
   },
   privacyNote: {
     flexDirection: 'row',
