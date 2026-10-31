@@ -59,10 +59,23 @@ confirmation states where relevant":
 | Keyboard focus | Subtle scale + shadow emphasis, announced to screen readers |
 | Loading | Spinner + "Getting started…", button disabled (`busy` accessibility state), double-tap safe |
 | Confirmation | Calm blue card with a green check: "You're all set for now — the next step (scanner screen) isn't connected in this preview yet." Exposed as an `alert` role (aria-live) |
+| Navigation (connected) | When the optional `onGetStarted` prop is passed, the loading state shows and the callback runs — the web preview wires it to the dashboard screen, so Get started goes there for real |
 | Error / empty | Not applicable to a welcome screen — no fake errors are shown, per the honesty rules in the product decisions document |
 
 The added states keep the hand-off design system: one blue accent, green only
 for positive results, plain-language text, and no unsupported claims.
+
+### Wiring Get started in the Expo app
+
+The component stays navigator-agnostic. When you add React Navigation (or
+Expo Router), connect it like this:
+
+```tsx
+<SecurityScannerWelcomeScreen onGetStarted={() => navigation.navigate('Dashboard')} />
+```
+
+Until then, `App.tsx` renders the screen without the prop and the honest
+loading + confirmation states apply (the `TODO` comment remains in the code).
 
 ## Design system (from the product decisions, section 10)
 

@@ -4,6 +4,7 @@
 // React Native library module evaluates.
 import '@/rn-web/native-globals';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -39,6 +40,16 @@ const SecurityScannerWelcomeScreen = dynamic(
 );
 
 export default function WelcomePreview() {
+  const router = useRouter();
+
+  // "Get started" now navigates to the real next screen (the dashboard).
+  // Passed as an optional prop so the React Native component itself stays
+  // portable — in the Expo app (no navigator wired yet) it keeps the honest
+  // loading + confirmation states.
+  const handleGetStarted = React.useCallback(() => {
+    router.push('/dashboard');
+  }, [router]);
+
   return (
     <div
       style={{
@@ -50,7 +61,7 @@ export default function WelcomePreview() {
       }}
     >
       <SafeAreaProvider style={{ flex: 1 }}>
-        <SecurityScannerWelcomeScreen />
+        <SecurityScannerWelcomeScreen onGetStarted={handleGetStarted} />
       </SafeAreaProvider>
     </div>
   );

@@ -91,7 +91,19 @@ function SecurityIllustration() {
 
 type GetStartedState = 'idle' | 'loading' | 'done';
 
-export default function SecurityScannerWelcomeScreen() {
+type SecurityScannerWelcomeScreenProps = {
+  /**
+   * Optional navigation hook. When provided (the web preview passes the
+   * Next.js router), pressing "Get started" navigates to the real next
+   * screen. When omitted (the Expo app has no navigator wired yet), the
+   * button falls back to the honest loading + confirmation states.
+   */
+  onGetStarted?: () => void;
+};
+
+export default function SecurityScannerWelcomeScreen({
+  onGetStarted,
+}: SecurityScannerWelcomeScreenProps) {
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
 
@@ -111,6 +123,12 @@ export default function SecurityScannerWelcomeScreen() {
 
   const handleGetStarted = () => {
     if (getStartedState === 'loading') {
+      return;
+    }
+    if (onGetStarted) {
+      // A real destination is connected: show the loading state, then go.
+      setGetStartedState('loading');
+      onGetStarted();
       return;
     }
     // TODO: Navigate to your scanner/onboarding route when it exists.
