@@ -1,8 +1,9 @@
-# Security Scanner — Welcome Screen (Expo + React Native)
+# Security Scanner — Screens 1 & 2 (Expo + React Native)
 
-The first screen of the Android security scanner, implemented from the
-`SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and
-UI states added during review (see below).
+The first two screens of the Android security scanner:
+
+1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below).
+2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off, used exactly as supplied (it already ships with its own states: URL input, notices, active nav, pressed feedback).
 
 ## Run it
 
@@ -12,29 +13,41 @@ npx expo install --fix   # aligns library versions with the installed Expo SDK
 npx expo start           # scan the QR code with the Expo Go app, or press `a` for Android
 ```
 
+By default `App.tsx` shows the welcome screen. To preview the dashboard instead,
+swap the import:
+
+```tsx
+import SecurityScannerDashboard from './SecurityScannerDashboard';
+
+export default function App() {
+  return <SecurityScannerDashboard />;
+}
+```
+
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| `SecurityScannerWelcomeScreen.tsx` | The welcome screen (hand-off design + interactive states) |
-| `App.tsx` | Renders the welcome screen |
+| `SecurityScannerWelcomeScreen.tsx` | Screen 1: welcome (hand-off design + interactive states) |
+| `SecurityScannerDashboard.tsx` | Screen 2: dashboard (hand-off code, byte-identical) |
+| `App.tsx` | Renders the welcome screen (swap to preview the dashboard) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
 | `package.json` | Dependencies (Expo SDK 58 aligned) |
 
-## Scope
+## Dashboard scope (from the hand-off's own notes)
 
-This implements the welcome UI only, per the product decisions document:
+- Implements the dashboard UI and basic local interactions: URL input, notices,
+  and highlighting the selected sidebar item.
+- It does **not** perform real malware scans or URL reputation checks. Connect a
+  scanner backend / native scanning implementation before presenting results as real.
+- History, Quarantine, and Settings show a notice — their full screens are
+  outside this component.
+- The sidebar appears on wide layouts (width ≥ 1100); on narrow layouts the
+  brand moves into the top bar.
+- The scan table contains sample data matching the reference design.
 
-- File scanning, URL checking, quarantine management, and navigation are **not**
-  part of this screen and must be implemented separately.
-- The `Get started` handler still contains the `TODO` to connect the
-  onboarding/scanner route when it exists. Until then it shows the honest
-  loading + confirmation states instead of navigating.
-- The illustration is built entirely with React Native views and Expo icons, so
-  it needs no image assets.
-
-## Interactive & UI states (added during review)
+## Welcome screen: interactive & UI states (added during review)
 
 Per the design brief section 10A — "Show clear loading, empty, error, and
 confirmation states where relevant":
