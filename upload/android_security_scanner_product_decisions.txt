@@ -1,0 +1,404 @@
+# Android Security Scanner — Product Design Decisions
+
+**Document status:** Working draft  
+**Purpose:** Keep product decisions in one place for review before implementation.
+
+## 1. Product approach
+
+- The product is an Android security scanner.
+- The planned app approach is **Expo + React Native Development Build**.
+- We are still in the **product design phase**. Do not begin implementation or project setup until the design is ready.
+- Discuss one small step at a time, using simple explanations.
+
+## 2. Decision labels
+
+Every design item should be labelled as one of:
+
+- **MVP** — required for the first usable version.
+- **Later release** — planned for a subsequent version.
+- **Open decision** — not decided yet.
+
+## 3. Quarantine policy (Step 55)
+
+The agreed baseline is **Intelligent Hybrid Quarantine**:
+
+- Confirmed malware: automatically quarantine when permitted and when the operation succeeds.
+- Suspicious files: ask the user to review them.
+- Clean files: leave untouched.
+- Unknown or inconclusive files: rescan or ask the user to review; do not assume they are malicious.
+- Restoration: require a fresh security scan and user confirmation.
+- Storage: encrypted, app-private storage on the user's device.
+- Retention: a proposed 30-day default, user-configurable, with automatic expiry and manual deletion.
+- Notify the user before automatic expiry where practical.
+- If deletion fails, keep the record and report the failure accurately.
+- Verify a restored file against its recorded hash.
+- Quarantine, restoration, and deletion must be auditable.
+- Never report quarantine or deletion as successful if the operation failed.
+- The scanner must never execute quarantined files.
+- Protect encryption keys with Android Keystore.
+- Do not upload files to the cloud without clear disclosure and appropriate user consent.
+- Do not overwrite unrelated user files during quarantine or restoration.
+- Explain what happens to quarantined data if the app is uninstalled.
+- Manage scan history separately from quarantine retention.
+
+## 4. Real-time protection (Step 56)
+
+### MVP
+
+- Users manually choose files and request scans.
+- Include the core file-scanning and quarantine workflow.
+- Include website and link checking in the first version.
+- Explain clearly when a website or link looks dangerous, suspicious, or cannot be checked confidently.
+- Confirmed malware files should be quarantined automatically when permitted.
+- Suspicious files should be presented for user review.
+- Unknown or inconclusive files should be rescanned or presented for review.
+- Website/link checking must not be described as a guarantee that a site is safe.
+- Keep the first version manageable; do not add automatic background download monitoring to the MVP.
+
+### Later release
+
+- Browser extension/add-on scanning is deferred because the work and supported-browser requirements are not yet clear.
+- Before building browser-extension support, choose the target browsers and devices and confirm what permissions and APIs they allow.
+- Automatically monitor eligible downloads and relevant security events where Android permits.
+- Use event-driven monitoring rather than continuously scanning the whole device.
+- Add battery-efficient background protection.
+- Expand background protection for supported APKs, links, websites, external files, and changes to previously scanned files.
+- Clearly explain limitations where Android does not allow the app to observe an event or access a file.
+
+## 5. App technology direction
+
+Planned direction, subject to checking library capabilities before implementation:
+
+- **Expo + React Native** — app development.
+- **TypeScript** — application logic.
+- **Expo Development Build** — supports native integrations when required.
+- **Local database** — choose a suitable option for storing information on the phone; the exact choice is still open.
+- Native Android APIs and tools may be used where needed for features React Native cannot handle directly.
+- **SHA-256** — file fingerprints and integrity checks.
+- **HTTPS and JSON** — secure communication and data exchange if cloud services are enabled.
+
+## 6. Backend database and cloud services
+
+### Current direction
+
+- **Database type: PostgreSQL.**
+- **Provider decision: Open.** We are considering **Supabase** or **Neon**. Neither has been selected yet.
+
+### Simple explanation of the options
+
+- **PostgreSQL** is the database technology: it stores organised information for the backend.
+- **Supabase** is a service built around PostgreSQL. It can also provide features such as user sign-in and APIs, depending on how we configure it.
+- **Neon** is a managed PostgreSQL service focused on providing the database. Other backend features may need to be supplied separately.
+- The choice should be based on the features we need, cost, security, ease of use, and how well it fits the app.
+
+### Likely roles of the services we mentioned
+
+These are intended roles to confirm, not proof that a particular product or feature has already been configured:
+
+- **The phone:** keep quarantined files in encrypted, app-private storage. Do not send the actual files to the backend by default.
+- **PostgreSQL (through Supabase or Neon):** store backend records that the service needs, such as accounts, settings, scan-result summaries, or threat-information records, if we decide those are needed. Decide exactly what data to store before implementation.
+- **Cloudflare:** may handle domain/DNS services and protect or route API traffic. Specific use depends on which Cloudflare products are configured.
+- **Sanity:** may manage editable app content such as help pages, FAQs, security tips, and announcements. It should not be treated as the malware-scanning engine or as storage for quarantined files.
+
+### Important privacy rule — plain-English meaning
+
+**Rule:** Do not upload files to the cloud without clear disclosure and appropriate user consent.
+
+In simple words: **the app must not secretly send a person's files over the internet.**
+
+Imagine the scanner finds a file it cannot identify:
+
+- **Scan on the phone:** The app checks the file on the phone. The file stays on the phone.
+- **Scan in the cloud:** The app sends the file over the internet to a server for checking. The file has now left the phone.
+
+Before a cloud scan, the app should clearly explain:
+- **What** will be sent (for example, the file itself).
+- **Why** it needs to be sent.
+- **Where / to whom** it will be sent or who will process it.
+- **Choice:** Ask the user for permission where consent is required, and do not send it if permission is not given.
+
+For example: “We couldn't identify this file on your phone. Would you like to send it to our server for further analysis? The file will leave your device.”
+
+Tapping **Scan** must not secretly mean **Upload my files**.
+
+For this product, the default is: **keep files on the phone.** Any future cloud-based file analysis must be a separate, clearly explained feature with appropriate consent.
+
+Also:
+- Do not upload quarantined files or their contents to PostgreSQL, Cloudflare, or Sanity by default.
+- Confirm which Cloudflare and Sanity products are actually in use before relying on them in the architecture.
+
+## 7. Decisions still open
+
+- Choose between Supabase and Neon for the PostgreSQL database.
+- Confirm the exact Cloudflare products and what we will use them for.
+- Confirm what Sanity will manage in the app.
+- Decide whether the backend needs user accounts, sign-in, or subscription management.
+- Decide exactly which backend records to store and how long to keep them.
+- For the MVP, decide the exact user interface for suspicious files. Current recommendation: warn the user and let them decide.
+- Decide how users will check websites and links in the MVP (for example, paste a link into the app or use Android's share menu). The exact interaction is still open.
+- Browser extension/add-on scanning is not part of the MVP; decide target browsers and approach when planning a later release.
+- Choose the file types and file sizes supported by the MVP.
+- Decide which scanning engine and local detection methods the MVP will use.
+- Decide what the app does when it cannot access a selected file or cannot finish a scan.
+- Decide what retention and storage-limit settings users can change in the MVP.
+- Decide which optional cloud services, if any, will be offered.
+
+## 8. Working rule
+
+Record each new decision in this document before moving to the next design question. Keep explanations concise and simple. Do not treat a recommendation or an open question as an approved decision.
+
+## 9. MVP data flow — simple explanation (proposed, not fully approved)
+
+Think of the app like a school test:
+- **Input** = what the user gives the app.
+- **Transformation** = what the app does to check it.
+- **Output** = what the app tells the user or does next.
+
+### A. File scanning
+
+**Input**
+1. The user opens the Android app.
+2. The user chooses a file and taps **Scan**.
+3. The app asks Android for access to that selected file, if needed.
+
+**Transformation**
+1. The app reads the file only as allowed by Android.
+2. A scanning engine checks it for signs of malware. The exact scanning engine and detection method are still an open decision.
+3. The app decides on a result such as **Threat found**, **Suspicious**, **No threat found**, or **Could not decide**.
+4. The app follows the agreed quarantine rules. Confirmed malware is quarantined automatically when permitted; suspicious files need user review; clean files stay untouched; unclear results are rescanned or reviewed.
+
+**Output**
+1. The app shows the result in plain language.
+2. If malware is confirmed, the app reports whether quarantine actually succeeded.
+3. If the result is suspicious or unclear, the app explains the next safe step.
+4. The app may save a scan record, but the exact records and retention period are still to be decided.
+5. The file stays on the phone by default; do not upload it to the cloud by default.
+
+### B. Website and link checking
+
+**Input**
+1. The user opens the app or website.
+2. The user provides a website link to check. The exact way they provide it (paste, share menu, or another method) is still open.
+3. The app or website checks that the input looks like a valid web link.
+
+**Transformation**
+1. The checker looks for signs that the link may be dangerous, using a detection method that still needs to be chosen.
+2. The result should be one of: **Likely dangerous**, **No known threat found**, or **Could not decide**.
+3. “No known threat found” must not be presented as a guarantee that the website is safe.
+
+**Output**
+1. Show a clear warning for links that appear dangerous.
+2. Show a cautious result when no known threat is found.
+3. Explain when the checker cannot reach a confident answer.
+4. Do not claim the checker has inspected a whole website if it only checked the link.
+
+### C. App versus website
+
+- The **Android app** can request Android permissions, but only within the limits Android allows.
+- The **website** has browser restrictions and does not automatically inherit the app's permissions.
+- Browser extension/add-on scanning is **Later release**, not MVP.
+
+### Important open decisions before implementation
+
+- Which scanning engine or detection method will check files?
+- Which method or service will check website links?
+- Will link checking happen on the device, on our backend, or through a mix? This must be decided with privacy and cost in mind.
+- Which scan details should be saved in the backend database, if any?
+- What should the app do when scanning fails, the internet is unavailable, or a file cannot be accessed?
+
+
+
+## 10. Visual design requirements and screen-by-screen image-generation brief
+
+**Purpose:** This section describes the intended look of the 18 planned screens. It is a written design brief for a future image-generation step. **Do not generate images as part of this document update.**
+
+### A. Overall design requirements
+
+**Product:** Android security scanner with file scanning, website/link checking, and quarantine. Browser extension scanning is a later release.
+
+**Visual style**
+- Modern, trustworthy, calm, simple, and easy for non-technical users.
+- Use a clean layout with plenty of space and clear headings.
+- Use a consistent design system across the Android app and the web-based admin panel.
+- Use a dark navy or charcoal base, white or very light surfaces, and one clear blue accent. Use green only for positive results, amber for caution, and red for confirmed danger. Do not rely on colour alone; include words and icons.
+- Use readable text, large tap targets, simple icons, and clear contrast.
+- Avoid scary hacker imagery, skulls, excessive gradients, clutter, and fake technical data.
+- Use realistic but fictional example names, URLs, counts, and file names. Do not show real personal information.
+- Use one consistent visual language across every screen. Reuse navigation, buttons, cards, spacing, icon style, and typography.
+- Mobile app screens should look like real Android phone interfaces. Admin screens should look like a responsive desktop web dashboard.
+- Do not imply that the app has scanned the whole phone or entire website if it has only checked one selected file or one submitted link.
+- Results must distinguish **Threat found**, **Suspicious**, **No known threat found**, and **Could not decide**. “No known threat found” must never be presented as a guarantee of safety.
+- Show clear loading, empty, error, and confirmation states where relevant.
+- Make permission requests understandable and explain why access is needed.
+- Privacy message: files stay on the phone by default; do not imply silent cloud upload.
+- Quarantined files should look isolated and unavailable for normal use until the user takes an allowed action.
+
+**Shared UI pieces**
+- App header with a simple shield logo and product name (working name can be “Security Scanner”).
+- Main mobile navigation with Home, History, and Settings; make Quarantine easy to find from Home.
+- Primary buttons use short action labels such as “Scan file”, “Check link”, “Review file”, and “Delete”.
+- Use cards for status, scan results, and recent activity.
+- Use a consistent status icon plus plain-language status text.
+- Ask for confirmation before destructive actions such as permanently deleting a quarantined file.
+- Admin pages use a left sidebar, top header, page title, tables/cards, search and filters where useful, and a visible signed-in admin menu.
+- The screen count is a planning estimate. Some items may be combined in the actual implementation.
+
+### B. Android app — 12 planned screens
+
+#### Screen 1 — Welcome / Onboarding
+- A clean first-launch screen with a shield illustration or simple shield icon.
+- Product name and a short sentence: “Check files and links for possible threats.”
+- Three short benefits: “Scan selected files”, “Check website links”, and “Review quarantined files”.
+- Primary button: “Get started”.
+- A small privacy note: “Files stay on your phone by default.”
+- Do not ask for every permission at once; explain permissions when the user first needs them.
+
+#### Screen 2 — Home Dashboard
+- A friendly greeting or neutral title such as “Your security”.
+- A prominent “Scan a file” card with a file-and-shield icon.
+- A second prominent “Check a link” card with a link icon and text field or button.
+- A compact status panel showing the latest scan result, not an unsupported claim that the whole device is protected.
+- A small “Quarantine” entry with a count, plus recent scan activity.
+- Keep the layout uncluttered and easy to understand at a glance.
+
+#### Screen 3 — Choose a File
+- A clear title: “Choose a file to scan”.
+- A simple list or file-picker handoff showing file name, file type, and size where Android provides them.
+- A clear explanation that the user chooses which file to share with the scanner.
+- Main action: “Scan selected file”.
+- If Android’s system file picker is used, treat the picker as Android’s own interface rather than pretending it is a custom app screen.
+- Include a clear cancel/back path and an access-error message if the file cannot be read.
+
+#### Screen 4 — File Scan in Progress
+- Show the selected file’s name and a simple progress indicator.
+- Status text such as “Checking this file…” and a brief explanation that the app is looking for signs of malware.
+- Provide a cancel option only if cancellation is safely supported.
+- Do not show fake technical terminal text or invented scan percentages.
+- If scanning fails, show a useful error and a way to try again.
+
+#### Screen 5 — File Scan Result
+- A clear result card with a status icon and plain-language result.
+- Support four distinct visual states:
+  - Confirmed threat: red warning, “Threat found”.
+  - Suspicious: amber warning, “Needs your review”.
+  - No known threat: calm positive styling, “No known threat found”.
+  - Inconclusive/error: neutral or amber styling, “Could not decide”.
+- Show the file name and a short explanation of what the result means.
+- If a confirmed threat was quarantined, say so only after quarantine succeeds.
+- If the quarantine action fails, say that it failed and explain the next safe step.
+- Do not claim “100% safe”.
+
+#### Screen 6 — Website / Link Checker
+- Title: “Check a website link”.
+- A large URL input box with a placeholder such as “Paste a website link”.
+- Main action: “Check link”.
+- A short hint: “We check the link for known signs of danger; this cannot guarantee a website is safe.”
+- Optional paste action if supported by the implementation.
+- Include basic invalid-link feedback.
+- The exact input method (typing/pasting or Android share menu) remains an implementation decision.
+
+#### Screen 7 — Link Check Result
+- Show the submitted domain or link in a readable, safely shortened form.
+- Show one of three clear outcomes: “Likely dangerous”, “No known threat found”, or “Could not decide”.
+- For a dangerous link, use a clear warning and advise the user not to open it.
+- For a link with no known threat, state that no known threat was found, not that the site is guaranteed safe.
+- Briefly explain what was checked. Do not claim the whole website was inspected if only the URL was checked.
+- Include a “Check another link” action.
+
+#### Screen 8 — Quarantine List
+- Title: “Quarantined files”.
+- List each isolated file with a display name where safe to show, date quarantined, and reason/status.
+- Make it clear these files are isolated and should not be opened normally.
+- Each row opens the file’s details/actions.
+- Include an empty state explaining that no files are quarantined yet.
+- Avoid exposing unnecessary sensitive file paths or detailed threat information on a crowded screen.
+
+#### Screen 9 — Quarantine File Details / Actions
+- Show the selected quarantined file, quarantine date, reason, and current state.
+- Provide carefully separated actions such as “Scan before restoring” and “Delete permanently”.
+- Restoration must require a fresh scan and user confirmation.
+- Permanent deletion must require confirmation.
+- Explain that restoring a file may put a risky file back on the device.
+- Show clear success or failure feedback. Never show a success message unless the action really succeeded.
+
+#### Screen 10 — Scan History
+- A chronological list of previous file scans and link checks.
+- Each entry shows date/time, item name or domain, and plain-language result.
+- Use small status icons and labels, not colour alone.
+- Add simple filters such as “All”, “Files”, and “Links” if practical.
+- Tapping an entry opens its details if the necessary record is saved.
+- Include a helpful empty state for a new user.
+
+#### Screen 11 — Settings / Privacy
+- A simple grouped list: privacy, notifications, quarantine retention, and app information.
+- Explain that files remain on the phone by default.
+- If retention settings are offered, show the current quarantine retention period and explain automatic expiry in plain language.
+- Include manual deletion access and a link to the privacy explanation.
+- Do not display cloud-upload controls unless a real cloud-analysis feature exists and its consent flow is designed.
+- Keep advanced technical options out of the main view.
+
+#### Screen 12 — Help / About
+- Search or browse simple help topics.
+- Suggested topics: “How file scanning works”, “What scan results mean”, “What quarantine does”, “How link checking works”, and “Your privacy”.
+- Use short answers, simple icons, and expandable help cards.
+- Show app version and a support/contact option only if those details are configured.
+- Content may be managed through Sanity if that is how the project is set up.
+
+### C. Admin web panel — 6 planned screens
+
+These screens are for authorised staff. They should look like a professional, responsive web dashboard, not like the Android app.
+
+#### Screen 13 — Admin Login
+- Minimal desktop-friendly sign-in page with product logo and “Admin sign in”.
+- Email/username and password fields, a “Sign in” button, and clear validation/error messages.
+- Include a password-reset link only if the feature exists.
+- Avoid public sign-up; admin access should be controlled.
+- Do not display real credentials in design mockups.
+
+#### Screen 14 — Admin Dashboard
+- Left sidebar navigation and top header.
+- Summary cards for service health, total scans, file scans, link checks, and recent errors, using clearly labelled sample data.
+- A simple recent-activity list and alerts section.
+- Avoid claiming live statistics unless the backend actually supplies them.
+- Do not show raw uploaded files or private file contents.
+
+#### Screen 15 — User Management
+- Searchable table of accounts, if accounts are included in the MVP.
+- Columns may include user identifier, account status, created date, and role; avoid unnecessary personal data.
+- Actions should be limited to authorised tasks such as viewing account status or disabling access where appropriate.
+- Include confirmation for sensitive actions and an audit trail.
+- If the MVP has no user accounts, this screen can be removed or deferred.
+
+#### Screen 16 — Threat Information Management
+- Admin table for the threat indicators or detection records the system actually uses.
+- Search and filter controls, clear status labels, source, date added, and last-updated information where available.
+- A form to add or update a record only if the chosen detection design supports this.
+- Validate entries and record who changed them.
+- Do not make the interface imply that staff manually label every file if the detection engine does not work that way.
+- Do not provide a tool for uploading users’ quarantined files by default.
+
+#### Screen 17 — Help Content Management
+- A simple content-management interface for help articles, FAQs, security tips, and announcements.
+- List of articles with title, status (draft/published), and last-updated date.
+- Editor view with title, body, and preview/publish controls, if supported by Sanity configuration.
+- Keep editing and publishing actions clear.
+- If Sanity already provides the required editor, use its existing interface instead of building a duplicate admin screen.
+
+#### Screen 18 — System Health / Audit Logs
+- A dashboard showing service availability, recent errors, and important admin actions.
+- Search/filterable event list with time, event type, outcome, and actor where appropriate.
+- Do not put passwords, file contents, secret keys, or unnecessary personal information in logs.
+- Make failures visible; do not imply an action succeeded when it failed.
+- Restrict access to authorised admins and retain logs according to a defined policy.
+
+### D. Guidance for creating visual mockups later
+
+- Generate one screen per image, or a clearly labelled multi-screen presentation if requested.
+- Keep all screens consistent with the design system in section A.
+- For phone screens, use a realistic modern Android portrait frame and legible interface text.
+- For admin screens, use a desktop browser-sized layout with consistent sidebar and tables.
+- Use fictional example data and make mock data look clearly illustrative.
+- Do not include browser-extension scanning in the MVP mockups.
+- Do not add unsupported features such as whole-device scanning, automatic monitoring, cloud file uploads, account management, or live threat statistics unless the product decisions later approve them.
+- These descriptions are design requirements and proposed visuals, not a claim that the screens or features have been built.
+
