@@ -47,7 +47,11 @@ export default function WelcomePreview() {
   // portable — in the Expo app (no navigator wired yet) it keeps the honest
   // loading + confirmation states.
   const handleGetStarted = React.useCallback(() => {
-    router.push('/dashboard');
+    // Trailing slash on purpose: the preview proxy 301-redirects /dashboard to
+    // /dashboard/, and a redirect on the router's RSC payload fetch makes the
+    // soft navigation fall back to a full page load. Pushing the exact URL
+    // keeps the client-side transition seamless.
+    router.push('/dashboard/');
   }, [router]);
 
   return (

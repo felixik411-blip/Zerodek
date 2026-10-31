@@ -8,6 +8,13 @@ const nextConfig: NextConfig = {
   },
   reactStrictMode: false,
 
+  // The preview proxy 301-redirects directory-style URLs to a trailing slash
+  // (/dashboard -> /dashboard/). With the default `trailingSlash: false`,
+  // Next.js 308-redirects back to /dashboard, creating an infinite redirect
+  // loop on every non-root route ("The page isn't redirecting properly").
+  // Setting true makes both sides agree on /dashboard/ and the loop disappears.
+  trailingSlash: true,
+
   // React Native libraries (the app code is React Native / Expo code)
   transpilePackages: [
     "react-native-web",
