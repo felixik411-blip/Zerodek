@@ -2,8 +2,8 @@
 
 The first two screens of the Android security scanner:
 
-1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below).
-2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off, used exactly as supplied (it already ships with its own states: URL input, notices, active nav, pressed feedback).
+1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
+2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
 
 ## Run it
 
@@ -29,22 +29,43 @@ export default function App() {
 | File | Purpose |
 | --- | --- |
 | `SecurityScannerWelcomeScreen.tsx` | Screen 1: welcome (hand-off design + interactive states) |
-| `SecurityScannerDashboard.tsx` | Screen 2: dashboard (hand-off code, byte-identical) |
+| `SecurityScannerDashboard.tsx` | Screen 2: dashboard (hand-off Home + real History/Quarantine/Settings sub-screens) |
 | `App.tsx` | Renders the welcome screen (swap to preview the dashboard) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
 | `package.json` | Dependencies (Expo SDK 58 aligned) |
 
-## Dashboard scope (from the hand-off's own notes)
+## Dashboard scope
 
-- Implements the dashboard UI and basic local interactions: URL input, notices,
-  and highlighting the selected sidebar item.
-- It does **not** perform real malware scans or URL reputation checks. Connect a
-  scanner backend / native scanning implementation before presenting results as real.
-- History, Quarantine, and Settings show a notice — their full screens are
-  outside this component.
+**Home (unchanged from the hand-off):** dashboard UI with URL input, notices,
+sidebar highlighting, sample scan table.
+
+**New sub-screens** (built to the product decisions doc, §3 and §10B screens 8/10/11):
+
+- **History** — chronological list of file scans and link checks, "All / Files /
+  Links" filters, status icons + words (never colour alone), empty state, and a
+  notice if a record's details aren't saved yet.
+- **Quarantine** — isolated-items list with lock icons, quarantine date, and the
+  auto-purge date computed from the configurable retention period (30-day
+  default). Restore and Delete demonstrate the confirmation-first pattern:
+  permanent deletion asks first, then reports honestly that the quarantine
+  service isn't connected in this preview yet — nothing is faked.
+- **Settings & privacy** — grouped Privacy / Quarantine retention / App
+  information sections. Files-stay-on-your-phone policy, retention chooser
+  (14/30/90 days) that propagates to the Quarantine screen, expiry warning
+  toggle. **No cloud-upload controls** — per the rulebook, they must not appear
+  until a real cloud-analysis feature with a consent flow exists.
+- **Mobile bottom navigation** — on narrow layouts the sidebar is hidden, so a
+  bottom tab bar (Home / History / Quarantine / Settings, with the badge) was
+  added, as required by the design brief §10A "main mobile navigation".
+
+**Still honest by design:** no real malware scanning or URL reputation checking
+happens — actions that need the scanner backend or native quarantine service
+show plain-language notices instead of pretending to succeed. The retention and
+notification controls work locally but are not persisted yet.
+
 - The sidebar appears on wide layouts (width ≥ 1100); on narrow layouts the
-  brand moves into the top bar.
+  brand moves into the top bar and navigation moves to the bottom tab bar.
 - The scan table contains sample data matching the reference design.
 
 ## Welcome screen: interactive & UI states (added during review)
