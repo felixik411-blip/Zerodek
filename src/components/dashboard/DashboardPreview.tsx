@@ -3,44 +3,45 @@
 // Must be the first import: defines the `__DEV__` global before any
 // React Native library module evaluates.
 import '@/rn-web/native-globals';
-import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import ScreenLoader from '@/rn-web/ScreenLoader';
+import { webInitialMetrics } from '@/rn-web/webSafeAreaMetrics';
+
+const loadScreen = () => import('./SecurityScannerDashboard');
 
 /**
- * Renders the React Native dashboard screen in the browser via react-native-web.
+ * Renders the React Native dashboard screen in the browser via
+ * react-native-web.
  *
- * - `ssr: false` avoids hydration mismatches from `useWindowDimensions()`
- *   (server has no real window width, so the responsive desktop/mobile
- *   layout must be computed on the client).
- * - `SafeAreaProvider` is required by `SafeAreaView` from
- *   react-native-safe-area-context; on web it maps to the CSS
- *   `env(safe-area-inset-*)` values.
+ * The dashboard hand-off is intentionally self-contained (no navigation
+ * props), so the flow is bridged at the glue level: a capture-phase DOM
+ * listener detects clicks on the element whose text is exactly "Scan file"
+ * and routes to the file-selection screen. The hand-off component itself is
+ * not modified.
  */
-const SecurityScannerDashboard = dynamic(
-  () => import('./SecurityScannerDashboard'),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          color: '#60779A',
-          fontSize: 14,
-        }}
-      >
-        Loading screen…
-      </div>
-    ),
-  }
-);
-
 export default function DashboardPreview() {
+  const router = useRouter();
+
+  const handleBridgeClick = React.useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const root = event.currentTarget;
+      let node = event.target as HTMLElement | null;
+      let hit = false;
+      while (node && node !== root) {
+        const text = (node.innerText || '').replace(/\s+/g, ' ').trim();
+        if (text === 'Scan file') hit = true;
+        node = node.parentElement;
+      }
+      if (hit) router.push('/file-selection/');
+    },
+    [router],
+  );
+
   return (
     <div
+      onClickCapture={handleBridgeClick}
       style={{
         height: '100dvh',
         display: 'flex',
@@ -49,8 +50,8 @@ export default function DashboardPreview() {
           'system-ui, -apple-system, Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif',
       }}
     >
-      <SafeAreaProvider style={{ flex: 1 }}>
-        <SecurityScannerDashboard />
+      <SafeAreaProvider initialMetrics={webInitialMetrics} style={{ flex: 1 }}>
+        <ScreenLoader load={loadScreen} />
       </SafeAreaProvider>
     </div>
   );

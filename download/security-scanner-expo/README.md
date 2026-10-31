@@ -1,10 +1,11 @@
-# Security Scanner — Screens 1–3 (Expo + React Native)
+# Security Scanner — Screens 1–4 (Expo + React Native)
 
-The first three screens of the Android security scanner:
+The first four screens of the Android security scanner:
 
 1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
 3. **File-selection screen** — `SecurityScannerFileSelectionScreen.tsx`, byte-identical to the design hand-off (`upload/3.md`). Sample file list with tabs, row selection, "Browse device" via the native document picker, and honest scanner notices.
+4. **Scan-progress screen** — `SecurityScannerScanProgressScreen.tsx`, byte-identical to the design hand-off (`upload/4.md`). Live progress ring + bar demo, honest "this is placeholder UI, not a real scan" messaging, cancel and finish states, and optional `onBackHome` / `onCancel` / `onScanComplete` callbacks for the app shell.
 
 ## Run it
 
@@ -14,16 +15,18 @@ npx expo install --fix   # aligns library versions with the installed Expo SDK
 npx expo start           # scan the QR code with the Expo Go app, or press `a` for Android
 ```
 
-By default `App.tsx` shows the welcome screen. To preview the dashboard or the
-file-selection screen instead, swap the import:
+By default `App.tsx` shows the welcome screen. To preview the dashboard, the
+file-selection screen, or the scan-progress screen instead, swap the import:
 
 ```tsx
 import SecurityScannerDashboard from './SecurityScannerDashboard';
 // or
 import SecurityScannerFileSelectionScreen from './SecurityScannerFileSelectionScreen';
+// or
+import SecurityScannerScanProgressScreen from './SecurityScannerScanProgressScreen';
 
 export default function App() {
-  return <SecurityScannerDashboard />; // or <SecurityScannerFileSelectionScreen />
+  return <SecurityScannerScanProgressScreen />;
 }
 ```
 
@@ -37,8 +40,9 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
 | `SecurityScannerWelcomeScreen.tsx` | Screen 1: welcome (hand-off design + interactive states) |
 | `SecurityScannerDashboard.tsx` | Screen 2: dashboard (hand-off Home + real History/Quarantine/Settings sub-screens) |
 | `SecurityScannerFileSelectionScreen.tsx` | Screen 3: file selection (byte-identical to the hand-off) |
+| `SecurityScannerScanProgressScreen.tsx` | Screen 4: scan progress (byte-identical to the hand-off) |
 | `glyphPatches.ts` | Icon glyph alias (`file-archive` → `zip-box`), imported first in `App.tsx` |
-| `App.tsx` | Renders the welcome screen (swap to preview the dashboard or file selection) |
+| `App.tsx` | Renders the welcome screen (swap to preview any of the four screens) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
 | `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`) |
@@ -93,6 +97,24 @@ Byte-identical to the hand-off. What it does:
   is faked, per the product decisions doc.
 - **Cancel / Back to Home** — sidebar pages and Home are still placeholders in
   this component; the hand-off shows a plain-language notice instead.
+- **Responsive** — sidebar on layouts ≥ 1000px wide; below that the brand
+  moves into the top bar.
+
+## Scan-progress screen (screen 4)
+
+Byte-identical to the hand-off. What it does:
+
+- **Demo progress** — starts at 48% and animates to 100% (2% every 350 ms).
+  The hand-off marks it clearly: placeholder UI, not a real malware scan.
+- **States** — "Checking this file…" while running, "Scan complete" at 100%
+  (button flips to a disabled "Finished"), and "Scan cancelled" after Cancel
+  (button flips to a disabled "Cancelled").
+- **File header** — takes optional `fileName` / `fileType` / `fileSize` props
+  (defaults: `Project_Proposal.pdf`, PDF document, 2.4 MB). The web preview
+  passes the file chosen on the file-selection screen through query params.
+- **Callbacks** — `onCancel`, `onBackHome`, `onScanComplete` are optional;
+  wire them to your navigator when it exists. In the web preview,
+  `onBackHome` returns to the dashboard.
 - **Responsive** — sidebar on layouts ≥ 1000px wide; below that the brand
   moves into the top bar.
 
