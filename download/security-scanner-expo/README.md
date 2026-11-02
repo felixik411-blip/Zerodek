@@ -1,6 +1,6 @@
-# Security Scanner — Screens 1–8 (Expo + React Native)
+# Security Scanner — Screens 1–9 (Expo + React Native)
 
-The first eight screens of the Android security scanner:
+The first nine screens of the Android security scanner:
 
 1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
@@ -10,6 +10,7 @@ The first eight screens of the Android security scanner:
 6. **Website-link screen** — `WebsiteLinkScreen.tsx`, byte-identical to the design hand-off (`upload/6.md`). URL input with inline validation, Paste from clipboard (`expo-clipboard`), example chips, honest "this cannot guarantee a website is safe" messaging, and `onBackHome` / `onCheckLink` callbacks.
 7. **Link-scan-result screen** — `LinkScanResultScreen.tsx`, byte-identical to the design hand-off (`upload/7.md`). "Likely dangerous" verdict card for a checked URL, copy/open-link actions, what-we-checked list, scan details, and Check-another-link / Back-to-Home actions with optional callbacks.
 8. **Quarantined-files screen** — `QuarantineScreen.tsx`, byte-identical to the design hand-off (`upload/8.md`). Isolated-files list with search, per-row details, three-dot restore/delete menu with confirmation-first dialogs, live count badge, and `onBackHome` / `onScanFile` / `onViewDetails` callbacks.
+9. **Quarantined-file-details screen** — `QuarantineDetailsScreen.tsx`, byte-identical to the design hand-off (`upload/9.md`). Details for a quarantined file: status banner, metadata, scan-before-restoring, permanent-delete confirmation, scan history, and full sidebar navigation (uses `lucide-react-native` + `react-native-svg`).
 
 ## Run it
 
@@ -36,9 +37,11 @@ import WebsiteLinkScreen from './WebsiteLinkScreen';
 import LinkScanResultScreen from './LinkScanResultScreen';
 // or
 import QuarantineScreen from './QuarantineScreen';
+// or
+import QuarantineDetailsScreen from './QuarantineDetailsScreen';
 
 export default function App() {
-  return <QuarantineScreen />;
+  return <QuarantineDetailsScreen />;
 }
 ```
 
@@ -57,11 +60,12 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
 | `WebsiteLinkScreen.tsx` | Screen 6: website link check (byte-identical to the hand-off) |
 | `LinkScanResultScreen.tsx` | Screen 7: link scan result (byte-identical to the hand-off) |
 | `QuarantineScreen.tsx` | Screen 8: quarantined files (byte-identical to the hand-off) |
+| `QuarantineDetailsScreen.tsx` | Screen 9: quarantined file details (byte-identical to the hand-off) |
 | `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`), imported first in `App.tsx` |
-| `App.tsx` | Renders the welcome screen (swap to preview any of the eight screens) |
+| `App.tsx` | Renders the welcome screen (swap to preview any of the nine screens) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
-| `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker` and `expo-clipboard`) |
+| `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`, `expo-clipboard`, `lucide-react-native`, `react-native-svg`) |
 
 ## Dashboard scope
 
@@ -214,8 +218,9 @@ Byte-identical to the hand-off. What it does:
   matching files" state with its own Clear-search button.
 - **View details** — `onViewDetails(file)` callback (falls back to an
   `Alert.alert` summary when the callback isn't provided). In the web preview
-  it navigates to the scan-result screen (screen 5), carrying the file's
-  name, type, and quarantine date/time.
+  it navigates to the quarantined-file-details screen (screen 9), whose
+  hand-off shows the same sample file; connect your real details/route here
+  per file if you need per-row content.
 - **Three-dot menu** — Restore file and Delete permanently, both asking for
   confirmation first (`Alert.alert` on native; the web preview bridges it to
   a browser dialog). Restore shows the hand-off's honest "no real file was
@@ -226,6 +231,32 @@ Byte-identical to the hand-off. What it does:
   file-selection screen.
 - **Responsive** — sidebar on layouts ≥ 950px wide; below that the table
   columns stack per-row and the search box moves under the count.
+
+## Quarantined-file-details screen (screen 9)
+
+Byte-identical to the hand-off. What it does:
+
+- **Summary** — sample file header (Project_Proposal.pdf, PDF, 2.4 MB — the
+  hand-off's own sample data) with the red "Quarantined" banner, plus the
+  quarantined-on date, reason and current-state metadata card.
+- **Scan before restoring** — "Scan and check" shows the hand-off's
+  placeholder `Alert.alert` ("connect your scanner service..."); connect a
+  real scan service and only offer restore per your security policy.
+- **Delete permanently** — confirmation dialog first (`Alert.alert` on
+  native; the web preview bridges it to a browser dialog), then the
+  hand-off's honest "demo action" notice — no real file is deleted until
+  your native quarantine service is connected.
+- **Scan history** — the initial-scan entry with the "Threat found" pill.
+- **Navigation** — `onBack` / `onOpenQuarantine` return to the quarantined
+  files list (screen 8), `onHome` to the dashboard, and `onHistory` /
+  `onSettings` deep-link into the dashboard's internal History / Settings
+  sub-screens via the `?view=` bridge.
+- **Dependencies** — this hand-off uses `lucide-react-native` with
+  `react-native-svg` (already in `package.json`; `npx expo install --fix`
+  aligns versions). On web, react-native-svg needs `@react-native/assets-registry`.
+- **Responsive** — sidebar always rendered by the hand-off (desktop-first,
+  per its notes); the web preview's glue CSS hides it below 900px and
+  relaxes the hand-off's desktop min-widths so phones don't overflow.
 
 ## Known notes
 

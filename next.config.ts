@@ -23,12 +23,18 @@ const nextConfig: NextConfig = {
     "expo-document-picker",
     "expo-clipboard",
     "expo-modules-core",
+    "react-native-svg",
+    "lucide-react-native",
   ],
 
   // Turbopack (default dev bundler in Next 16)
   turbopack: {
     resolveAlias: {
-      "react-native": "react-native-web",
+      // Route the `react-native` specifier through the shim instead of
+      // react-native-web directly: the shim re-exports react-native-web
+      // and adds stub exports for native-only APIs (TurboModuleRegistry)
+      // that react-native-svg's web build imports but never calls.
+      "react-native": "./src/rn-web/react-native-shim.ts",
       "expo-font": "./src/rn-web/expo-font-stub.ts",
     },
     rules: {
@@ -56,9 +62,10 @@ const nextConfig: NextConfig = {
 
   // Webpack (kept in sync in case it is ever used)
   webpack: (config) => {
+    const shim = path.resolve(__dirname, "src/rn-web/react-native-shim.ts");
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
-      "react-native$": "react-native-web",
+      "react-native$": shim,
       "expo-font$": path.resolve(__dirname, "src/rn-web/expo-font-stub.ts"),
     };
     config.resolve.extensions = [

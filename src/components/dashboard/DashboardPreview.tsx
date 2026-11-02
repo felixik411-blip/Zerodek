@@ -39,26 +39,32 @@ function DashboardPreviewInner() {
     [router],
   );
 
-  // Deep-link bridge for other screens' quarantine actions (e.g. the
-  // scan-result screen's "View quarantine"). The dashboard hand-off is
-  // self-contained (internal `activeNav` state, no props), so once it has
-  // rendered, this clicks the first element whose text is exactly
-  // "Quarantine" — the sidebar label and the home screen's quarantine-panel
-  // title both live inside the hand-off's own `goTo('Quarantine')`
+  // Deep-link bridge for other screens' navigation actions (e.g. the
+  // scan-result screen's "View quarantine", the quarantine-details screen's
+  // History / Settings items). The dashboard hand-off is self-contained
+  // (internal `activeNav` state, no props), so once it has rendered, this
+  // clicks the first element whose text is exactly the requested view's
+  // name — those labels live inside the hand-off's own `goTo(...)`
   // pressables, so the hand-off's own handler performs the switch. The
   // hand-off component itself is not modified. A short rAF retry absorbs
   // late first paint; the bridge runs at most once per loaded view.
   const [ready, setReady] = React.useState(false);
   const handleScreenReady = React.useCallback(() => setReady(true), []);
 
+  const requestedView =
+    view === 'Quarantine' || view === 'History' || view === 'Settings'
+      ? view
+      : null;
+
   React.useEffect(() => {
-    if (!ready || view !== 'Quarantine') return;
+    if (!ready || !requestedView) return;
     let cancelled = false;
     let frames = 0;
     const tick = () => {
       if (cancelled) return;
       const target = Array.from(document.querySelectorAll('div')).find(
-        el => (el.innerText || '').replace(/\s+/g, ' ').trim() === 'Quarantine',
+        el =>
+          (el.innerText || '').replace(/\s+/g, ' ').trim() === requestedView,
       );
       if (target) {
         target.click();
@@ -71,7 +77,7 @@ function DashboardPreviewInner() {
     return () => {
       cancelled = true;
     };
-  }, [ready, view]);
+  }, [ready, requestedView]);
 
   return (
     // The capture-phase bridge must sit ABOVE the rendered screen: without
@@ -94,9 +100,9 @@ function DashboardPreviewInner() {
  * props), so the flow is bridged at the glue level: a capture-phase DOM
  * listener detects clicks on the element whose text is exactly "Scan file"
  * and routes to the file-selection screen, the "Check a link" card's Check
- * button routes to the website-link screen (screen 6), and a
- * `?view=Quarantine` query param deep-links into the hand-off's internal
- * Quarantine view. The hand-off component itself is not modified.
+ * button routes to the website-link screen (screen 6), and a `?view=` query
+ * param (Quarantine / History / Settings) deep-links into the hand-off's
+ * internal sub-screens. The hand-off component itself is not modified.
  *
  * `useSearchParams` needs a Suspense boundary during static prerender.
  */

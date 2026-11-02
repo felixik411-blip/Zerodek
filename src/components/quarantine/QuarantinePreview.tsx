@@ -42,18 +42,14 @@ function QuarantinePreviewInner() {
   }, [router]);
 
   const handleViewDetails = React.useCallback(
-    (file: QuarantineFile) => {
-      // The hand-off comment says "Navigate to your scan-result screen" —
-      // that's screen 5, which accepts the file's metadata via query
-      // params (no size in the quarantine data, so screen 5's own default
-      // applies there).
-      const query = new URLSearchParams({
-        file: file.name,
-        type: file.description,
-        scanDate: file.date,
-        scanTime: file.time,
-      }).toString();
-      router.push(`/scan-result/?${query}`);
+    (_file: QuarantineFile) => {
+      // The quarantined-file details screen (screen 9) is the details page
+      // for these rows — its hand-off shows the same sample file
+      // (Project_Proposal.pdf) and wires onOpenQuarantine back to this
+      // list. The details hand-off takes only navigation callbacks (the
+      // file name, size and dates it displays are its own sample data), so
+      // there is nothing to forward here.
+      router.push('/quarantine-details/');
     },
     [router],
   );

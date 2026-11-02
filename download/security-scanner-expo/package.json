@@ -11,11 +11,13 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "expo": "~58.0.22",
-    "expo-document-picker": "~58.0.4",
     "expo-clipboard": "~58.0.4",
+    "expo-document-picker": "~58.0.4",
+    "lucide-react-native": "^1.66.0",
     "react": "19.3.0",
     "react-native": "0.88.1",
-    "react-native-safe-area-context": "~5.10.1"
+    "react-native-safe-area-context": "~5.10.1",
+    "react-native-svg": "~15.16.0"
   },
   "devDependencies": {
     "@types/react": "~19.3.0",
