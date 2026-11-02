@@ -28,11 +28,11 @@ function QuarantineDetailsPreviewInner() {
     router.push('/dashboard/');
   }, [router]);
 
-  // The dashboard hand-off has its own internal History / Settings
-  // sub-screens; the `?view=` deep-link bridge in DashboardPreview switches
-  // to them once the dashboard has rendered.
+  // The real scan-history screen (screen 10) now exists, so the sidebar
+  // History item goes there. (The dashboard's `?view=History` deep-link
+  // bridge remains available for anything that still uses it.)
   const handleHistory = React.useCallback(() => {
-    router.push('/dashboard/?view=History');
+    router.push('/scan-history/');
   }, [router]);
 
   const handleSettings = React.useCallback(() => {

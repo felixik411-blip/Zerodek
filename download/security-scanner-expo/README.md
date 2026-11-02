@@ -1,6 +1,6 @@
-# Security Scanner — Screens 1–9 (Expo + React Native)
+# Security Scanner — Screens 1–10 (Expo + React Native)
 
-The first nine screens of the Android security scanner:
+The first ten screens of the Android security scanner:
 
 1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
@@ -11,6 +11,7 @@ The first nine screens of the Android security scanner:
 7. **Link-scan-result screen** — `LinkScanResultScreen.tsx`, byte-identical to the design hand-off (`upload/7.md`). "Likely dangerous" verdict card for a checked URL, copy/open-link actions, what-we-checked list, scan details, and Check-another-link / Back-to-Home actions with optional callbacks.
 8. **Quarantined-files screen** — `QuarantineScreen.tsx`, byte-identical to the design hand-off (`upload/8.md`). Isolated-files list with search, per-row details, three-dot restore/delete menu with confirmation-first dialogs, live count badge, and `onBackHome` / `onScanFile` / `onViewDetails` callbacks.
 9. **Quarantined-file-details screen** — `QuarantineDetailsScreen.tsx`, byte-identical to the design hand-off (`upload/9.md`). Details for a quarantined file: status banner, metadata, scan-before-restoring, permanent-delete confirmation, scan history, and full sidebar navigation (uses `lucide-react-native` + `react-native-svg`).
+10. **Scan-history screen** — `ScanHistoryScreen.tsx`, byte-identical to the design hand-off (`upload/10.md`). Chronological list of file scans and link checks with All/Files/Links filters, search, colour + word result statuses, and clickable rows (uses `Ionicons`).
 
 ## Run it
 
@@ -39,9 +40,11 @@ import LinkScanResultScreen from './LinkScanResultScreen';
 import QuarantineScreen from './QuarantineScreen';
 // or
 import QuarantineDetailsScreen from './QuarantineDetailsScreen';
+// or
+import ScanHistoryScreen from './ScanHistoryScreen';
 
 export default function App() {
-  return <QuarantineDetailsScreen />;
+  return <ScanHistoryScreen />;
 }
 ```
 
@@ -61,8 +64,9 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
 | `LinkScanResultScreen.tsx` | Screen 7: link scan result (byte-identical to the hand-off) |
 | `QuarantineScreen.tsx` | Screen 8: quarantined files (byte-identical to the hand-off) |
 | `QuarantineDetailsScreen.tsx` | Screen 9: quarantined file details (byte-identical to the hand-off) |
+| `ScanHistoryScreen.tsx` | Screen 10: scan history (byte-identical to the hand-off) |
 | `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`), imported first in `App.tsx` |
-| `App.tsx` | Renders the welcome screen (swap to preview any of the nine screens) |
+| `App.tsx` | Renders the welcome screen (swap to preview any of the ten screens) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
 | `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`, `expo-clipboard`, `lucide-react-native`, `react-native-svg`) |
@@ -257,6 +261,33 @@ Byte-identical to the hand-off. What it does:
 - **Responsive** — sidebar always rendered by the hand-off (desktop-first,
   per its notes); the web preview's glue CSS hides it below 900px and
   relaxes the hand-off's desktop min-widths so phones don't overflow.
+
+## Scan-history screen (screen 10)
+
+Byte-identical to the hand-off. What it does:
+
+- **Records** — the eight sample scans from the hand-off (files + links,
+  Oct 26–30), each with date/time, item icon, size subtitle, and a colour +
+  word result pill ("Threat found", "No known threat", "Likely dangerous",
+  "Needs your review", "Could not decide" — never colour alone).
+- **Filters and search** — All / Files / Links chips combine with the search
+  field (matches item, type, result and detail); an empty result shows the
+  hand-off's empty state with a Clear-filters button.
+- **Clickable rows** — the hand-off's `openRecord()` is a console.log stub;
+  the hand-off notes say to connect rows to the file/link result screens
+  "when those routes are ready". In the web preview they are, so the glue
+  bridge routes File rows to the scan-result screen (screen 5, carrying
+  name/size/date/time) and Link rows to the link-scan-result screen
+  (screen 7, carrying URL + checked-at timestamp).
+- **Sidebar** — the hand-off's `navigate()` is also a stub; the glue bridge
+  routes Home to the dashboard, Quarantine to the quarantined-files screen
+  (screen 8) and Settings into the dashboard's internal Settings view.
+- **Dependencies** — uses `Ionicons` from `@expo/vector-icons` (already in
+  `package.json`). On web, the Ionicons font file and @font-face rule ship
+  with the preview app.
+- **Responsive** — the sidebar hides below 900px (hand-off behaviour), the
+  table becomes stacked cards, and a menu placeholder appears in the top
+  bar; connect it to your navigation drawer when one exists.
 
 ## Known notes
 

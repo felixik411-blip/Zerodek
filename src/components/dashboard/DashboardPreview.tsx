@@ -20,7 +20,7 @@ function DashboardPreviewInner() {
     (event: React.MouseEvent<HTMLDivElement>) => {
       const root = event.currentTarget;
       let node = event.target as HTMLElement | null;
-      let destination: '/file-selection/' | '/website-link/' | null = null;
+      let destination: string | null = null;
       while (node && node !== root) {
         const text = (node.innerText || '').replace(/\s+/g, ' ').trim();
         // Innermost match wins: the button's own Text node fires before any
@@ -31,6 +31,11 @@ function DashboardPreviewInner() {
           // dedicated website-link screen (screen 6) instead of the
           // in-card notice.
           else if (text === 'Check') destination = '/website-link/';
+          // The real scan-history screen (screen 10) now exists, so the
+          // sidebar History item and the activity card's "View all" go
+          // there instead of the hand-off's internal History sub-screen.
+          else if (text === 'History' || text === 'View all')
+            destination = '/scan-history/';
         }
         node = node.parentElement;
       }
