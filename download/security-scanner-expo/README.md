@@ -1,6 +1,6 @@
-# Security Scanner — Screens 1–13 (Expo + React Native)
+# Security Scanner — Screens 1–14 (Expo + React Native)
 
-The first thirteen screens of the Android security scanner:
+The first fourteen screens of the Android security scanner:
 
 1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
@@ -68,8 +68,9 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
 | `SettingsScreen.tsx` | Screen 11: settings (byte-identical to the hand-off) |
 | `HelpAboutScreen.tsx` | Screen 12: help & about (authored to the brief in `12.md`) |
 | `AdminSignInScreen.tsx` | Screen 13: admin sign-in (authored to the brief in `13.md`) |
-| `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`), imported first in `App.tsx` |
-| `App.tsx` | Renders the welcome screen (swap to preview any of the thirteen screens) |
+| `AdminDashboardScreen.tsx` | Screen 14: admin dashboard (byte-identical to the hand-off in `14.md`) |
+| `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`, Feather `shield-check` → `shield`), imported first in `App.tsx` |
+| `App.tsx` | Renders the welcome screen (swap to preview any of the fourteen screens) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
 | `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`, `expo-clipboard`, `lucide-react-native`, `react-native-svg`) |
@@ -391,6 +392,42 @@ was written to spec. What it does:
   single scrollable view with no horizontal overflow. Tap-outside keyboard
   dismissal is included for mobile.
 
+## Admin dashboard screen (screen 14)
+
+Byte-identical to the code hand-off in `14.md`. What it does and how it is
+wired:
+
+- **Desktop layout (≥1100px)** — navy sidebar (brand, six nav items,
+  footer card), white top bar (menu, bell with red dot, AD admin account),
+  and a dashboard page: heading with a period dropdown, five metric cards
+  (Service Health / Total Scans / File Scans / Link Checks / Recent
+  Errors), the Recent Activity table (7 sample rows with type and result
+  pills), a Service Status panel (5 services, all Operational) and an
+  Alerts panel (3 sample alerts).
+- **Built-in interactions (from the hand-off)** — the period dropdown opens
+  and selects Today / Last 7 days / Last 30 days / This year (label only,
+  per the brief — it does not refetch metrics); every control gives inline
+  feedback through a dismissable notice strip (nav without a route,
+  bell, admin menu, activity rows, "View all").
+- **Wired to the real app (glue, not in the hand-off)** — the web preview
+  wraps the screen in a click-capture bridge: sidebar Dashboard / Scans /
+  Quarantine / Settings / Help & Support route to the real dashboard,
+  scan-history, quarantine, settings and help-about screens; activity rows
+  and the Recent Activity "View all" route to scan-history. Sidebar clicks
+  are told apart from the "Dashboard" page title via the sidebar's navy
+  background colour. "Users" and the Alerts "View all" keep the hand-off's
+  honest notices (no such screens exist).
+- **Icon glyph alias** — the hand-off names the Feather icon
+  `shield-check` (Service-Health metric), which does not exist in the
+  Feather glyphmap (only `shield`/`shield-off`); `glyphPatches.ts` aliases
+  it to `shield` without touching the byte-identical screen code.
+- **Responsive** — below 1100px the sidebar disappears (mobile brand in
+  the top bar), metrics wrap and the panels stack, per the hand-off. One
+  web-preview glue rule (media query only, hand-off untouched): the
+  activity table cannot shrink below its `numberOfLines={1}` contents, so
+  on a 390px viewport the Result column was silently clipped — the panel
+  now scrolls sideways instead, keeping every column reachable.
+
 ## Known notes
 
 - The hand-off references the icon name `file-archive`, which does not exist
@@ -401,6 +438,10 @@ was written to spec. What it does:
   **without touching the byte-identical screen code**. If you'd rather change
   the design source, replace `'file-archive'` with `'zip-box'` in the screen
   and delete the patch file.
+- The admin-dashboard hand-off (screen 14) names the Feather icon
+  `shield-check`, which also does not exist in the Feather glyphmap (only
+  `shield` / `shield-off`). `glyphPatches.ts` aliases it to `shield` the
+  same way, again without touching the byte-identical screen code.
 - Same situation on the scan-result screen: the hand-off uses `shield-minus`,
   which also does not exist in the glyphmap. `glyphPatches.ts` aliases it to
   the real minus-shield glyph `shield-remove` (Material Design Icons names
