@@ -1,6 +1,6 @@
-# Security Scanner — Screens 1–7 (Expo + React Native)
+# Security Scanner — Screens 1–8 (Expo + React Native)
 
-The first seven screens of the Android security scanner:
+The first eight screens of the Android security scanner:
 
 1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
@@ -9,6 +9,7 @@ The first seven screens of the Android security scanner:
 5. **Scan-result screen** — `SecurityScannerResultScreen.tsx`, byte-identical to the design hand-off (`upload/5.md`). "Threat found" result card, file metadata, quarantine explainer, next steps, and View quarantine / Delete permanently (confirm first) / Scan another actions with optional callbacks.
 6. **Website-link screen** — `WebsiteLinkScreen.tsx`, byte-identical to the design hand-off (`upload/6.md`). URL input with inline validation, Paste from clipboard (`expo-clipboard`), example chips, honest "this cannot guarantee a website is safe" messaging, and `onBackHome` / `onCheckLink` callbacks.
 7. **Link-scan-result screen** — `LinkScanResultScreen.tsx`, byte-identical to the design hand-off (`upload/7.md`). "Likely dangerous" verdict card for a checked URL, copy/open-link actions, what-we-checked list, scan details, and Check-another-link / Back-to-Home actions with optional callbacks.
+8. **Quarantined-files screen** — `QuarantineScreen.tsx`, byte-identical to the design hand-off (`upload/8.md`). Isolated-files list with search, per-row details, three-dot restore/delete menu with confirmation-first dialogs, live count badge, and `onBackHome` / `onScanFile` / `onViewDetails` callbacks.
 
 ## Run it
 
@@ -33,9 +34,11 @@ import SecurityScannerResultScreen from './SecurityScannerResultScreen';
 import WebsiteLinkScreen from './WebsiteLinkScreen';
 // or
 import LinkScanResultScreen from './LinkScanResultScreen';
+// or
+import QuarantineScreen from './QuarantineScreen';
 
 export default function App() {
-  return <LinkScanResultScreen />;
+  return <QuarantineScreen />;
 }
 ```
 
@@ -53,8 +56,9 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
 | `SecurityScannerResultScreen.tsx` | Screen 5: scan result (byte-identical to the hand-off) |
 | `WebsiteLinkScreen.tsx` | Screen 6: website link check (byte-identical to the hand-off) |
 | `LinkScanResultScreen.tsx` | Screen 7: link scan result (byte-identical to the hand-off) |
+| `QuarantineScreen.tsx` | Screen 8: quarantined files (byte-identical to the hand-off) |
 | `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`), imported first in `App.tsx` |
-| `App.tsx` | Renders the welcome screen (swap to preview any of the seven screens) |
+| `App.tsx` | Renders the welcome screen (swap to preview any of the eight screens) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
 | `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker` and `expo-clipboard`) |
@@ -196,6 +200,32 @@ Byte-identical to the hand-off. What it does:
   web preview they return to the dashboard and to the website-link screen.
 - **Responsive** — sidebar on layouts ≥ 900px wide; the top grid, details grid
   and action buttons stack below that.
+
+## Quarantined-files screen (screen 8)
+
+Byte-identical to the hand-off. What it does:
+
+- **List** — the two sample quarantined files from the hand-off, with type
+  icons, quarantine date/time, and colour + word status ("Threat found" red /
+  "Suspicious" orange — never colour alone). The sidebar badge shows the live
+  count and updates as rows are removed.
+- **Search** — filters by name, description, type, status and reason; an
+  x-circle button clears the field; an empty result shows the hand-off's "No
+  matching files" state with its own Clear-search button.
+- **View details** — `onViewDetails(file)` callback (falls back to an
+  `Alert.alert` summary when the callback isn't provided). In the web preview
+  it navigates to the scan-result screen (screen 5), carrying the file's
+  name, type, and quarantine date/time.
+- **Three-dot menu** — Restore file and Delete permanently, both asking for
+  confirmation first (`Alert.alert` on native; the web preview bridges it to
+  a browser dialog). Restore shows the hand-off's honest "no real file was
+  restored" follow-up notice; delete removes the row from the demo list. Per
+  the hand-off notes, connect a native quarantine service before treating
+  these as real security operations.
+- **Scan a file** — `onScanFile` callback; the web preview goes to the
+  file-selection screen.
+- **Responsive** — sidebar on layouts ≥ 950px wide; below that the table
+  columns stack per-row and the search box moves under the count.
 
 ## Known notes
 
