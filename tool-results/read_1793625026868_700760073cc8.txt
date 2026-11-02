@@ -1,0 +1,899 @@
+     1→import React, { useMemo, useState } from 'react';
+     2→import {
+     3→  ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity,
+     4→  View, useWindowDimensions,
+     5→} from 'react-native';
+     6→import { SafeAreaView } from 'react-native-safe-area-context';
+     7→import {
+     8→  Archive, ArrowLeft, ChevronDown, ChevronRight, FileText, HelpCircle,
+     9→  History, House, Info, LifeBuoy, Link2, Lock, Mail, Search, Settings,
+    10→  ShieldCheck,
+    11→} from 'lucide-react-native';
+    12→
+    13→/*
+    14→ * Help & About screen (screen 12).
+    15→ *
+    16→ * Authored from the implementation brief in upload/12.md: the brief defines
+    17→ * requirements and copy (no code hand-off), so this file follows the app's
+    18→ * shared design system — same palette, sidebar, header and card styles as
+    19→ * the dashboard and settings screens — and reuses lucide-react-native
+    20→ * (already a project dependency). No backend behaviour is claimed anywhere:
+    21→ * search filters only the five local topics, and the support email is
+    22→ * selectable styled text.
+    23→ */
+    24→
+    25→const C = {
+    26→  primary: '#0877ff',
+    27→  navy: '#14263b',
+    28→  navyBorder: '#263b54',
+    29→  noteBorder: '#2b4058',
+    30→  text: '#142a47',
+    31→  body: '#33507e',
+    32→  muted: '#5b77a7',
+    33→  faint: '#7896c8',
+    34→  label: '#526f9f',
+    35→  border: '#dcecff',
+    36→  borderSoft: '#e7f0fb',
+    37→  bg: '#f5f9fe',
+    38→  card: '#ffffff',
+    39→  tileBg: '#e3f0ff',
+    40→  activeNav: '#174b87',
+    41→  badge: '#ff4d55',
+    42→  white: '#ffffff',
+    43→  brandAccent: '#68c1ff',
+    44→  sidebarText: '#f3f7ff',
+    45→  sidebarBody: '#c5d3e7',
+    46→  sidebarIcon: '#dceaff',
+    47→};
+    48→
+    49→export type HelpNavDestination = 'home' | 'history' | 'quarantine' | 'settings';
+    50→
+    51→/** One block of a topic's answer. */
+    52→type HelpAnswerBlock =
+    53→  | { type: 'paragraph'; text: string }
+    54→  | { type: 'bullet'; label: string; text: string };
+    55→
+    56→type HelpTopic = {
+    57→  id: string;
+    58→  title: string;
+    59→  description: string;
+    60→  /** lucide icon key — resolved through TOPIC_ICONS. */
+    61→  icon: 'shield-check' | 'file-text' | 'archive' | 'link' | 'lock';
+    62→  iconColor: string;
+    63→  tileColor: string;
+    64→  answer: HelpAnswerBlock[];
+    65→};
+    66→
+    67→const TOPIC_ICONS = {
+    68→  'shield-check': ShieldCheck,
+    69→  'file-text': FileText,
+    70→  archive: Archive,
+    71→  link: Link2,
+    72→  lock: Lock,
+    73→} as const;
+    74→
+    75→const TOPICS: HelpTopic[] = [
+    76→  {
+    77→    id: 'file-scanning',
+    78→    title: 'How file scanning works',
+    79→    description:
+    80→      'We check files for known signs of malware using trusted threat information.',
+    81→    icon: 'shield-check',
+    82→    iconColor: C.primary,
+    83→    tileColor: C.tileBg,
+    84→    answer: [
+    85→      {
+    86→        type: 'paragraph',
+    87→        text: 'When you scan a file, the app looks for known indicators of malware — patterns that are already documented in trusted threat information sources.',
+    88→      },
+    89→      {
+    90→        type: 'paragraph',
+    91→        text: 'A scan is a check against what is already known. It is a helpful signal, but no scanner can guarantee that a file is completely safe. If a file comes from a source you do not trust, treat it with care even after a clean result.',
+    92→      },
+    93→    ],
+    94→  },
+    95→  {
+    96→    id: 'scan-results',
+    97→    title: 'What scan results mean',
+    98→    description:
+    99→      'Learn what the different results (threat found, needs review, no known threat, or could not decide) mean and what to do next.',
+   100→    icon: 'file-text',
+   101→    iconColor: '#1e9e5a',
+   102→    tileColor: '#e6f6ee',
+   103→    answer: [
+   104→      {
+   105→        type: 'paragraph',
+   106→        text: 'Each scan ends in one of four results. Here is what each one means and what to do next:',
+   107→      },
+   108→      {
+   109→        type: 'bullet',
+   110→        label: 'Threat found',
+   111→        text: 'Known malicious indicators were detected. Do not open or share the file or link, and let quarantine handle it.',
+   112→      },
+   113→      {
+   114→        type: 'bullet',
+   115→        label: 'Needs your review',
+   116→        text: 'Suspicious indicators were detected, but the scan could not confirm anything. Treat the item cautiously and avoid opening it unless you trust the source.',
+   117→      },
+   118→      {
+   119→        type: 'bullet',
+   120→        label: 'No known threat',
+   121→        text: 'No known indicators were found. This is not a guarantee of safety — new threats can take time to be documented.',
+   122→      },
+   123→      {
+   124→        type: 'bullet',
+   125→        label: 'Could not decide',
+   126→        text: 'The scan could not reach a reliable conclusion, for example because the file is packed or partially unreadable. Handle it as if it needs review.',
+   127→      },
+   128→    ],
+   129→  },
+   130→  {
+   131→    id: 'quarantine',
+   132→    title: 'What quarantine does',
+   133→    description:
+   134→      'Quarantine isolates risky files so they can’t harm your device. You can restore or delete them later.',
+   135→    icon: 'archive',
+   136→    iconColor: '#e8850c',
+   137→    tileColor: '#fef3e6',
+   138→    answer: [
+   139→      {
+   140→        type: 'paragraph',
+   141→        text: 'Quarantine isolates files that were flagged as risky so they cannot run or harm your device. The file stays on your phone, but in a locked storage area.',
+   142→      },
+   143→      {
+   144→        type: 'paragraph',
+   145→        text: 'You can restore a file once you have verified it is safe, or delete it. Keep a risky file quarantined unless you are sure. Deleting a quarantined file is permanent — it cannot be recovered.',
+   146→      },
+   147→    ],
+   148→  },
+   149→  {
+   150→    id: 'link-checking',
+   151→    title: 'How link checking works',
+   152→    description:
+   153→      'We check links for known dangerous patterns and domains. This helps you avoid risky websites and phishing attempts.',
+   154→    icon: 'link',
+   155→    iconColor: '#7c5ce0',
+   156→    tileColor: '#f1edfd',
+   157→    answer: [
+   158→      {
+   159→        type: 'paragraph',
+   160→        text: 'A link check compares the address you entered with known dangerous patterns and domains — for example pages tied to phishing or malware distribution.',
+   161→      },
+   162→      {
+   163→        type: 'paragraph',
+   164→        text: 'It helps you avoid risky websites, but it cannot guarantee that a site is safe. Stay cautious with links from messages or emails you did not expect.',
+   165→      },
+   166→    ],
+   167→  },
+   168→  {
+   169→    id: 'privacy',
+   170→    title: 'Your privacy',
+   171→    description:
+   172→      'We keep your files on your device by default and don’t upload them without your permission.',
+   173→    icon: 'lock',
+   174→    iconColor: '#14a8a0',
+   175→    tileColor: '#e4f6f4',
+   176→    answer: [
+   177→      {
+   178→        type: 'paragraph',
+   179→        text: 'Your files stay on your device by default. Scanning and quarantine run locally, and we do not upload your files or personal data without your permission.',
+   180→      },
+   181→      {
+   182→        type: 'paragraph',
+   183→        text: 'You stay in control: nothing leaves your phone unless you explicitly choose to share it.',
+   184→      },
+   185→    ],
+   186→  },
+   187→];
+   188→
+   189→/** Case-insensitive search haystack for one topic (title, description, answer). */
+   190→function topicHaystack(topic: HelpTopic): string {
+   191→  return [
+   192→    topic.title,
+   193→    topic.description,
+   194→    ...topic.answer.map((block) =>
+   195→      block.type === 'bullet' ? `${block.label} ${block.text}` : block.text,
+   196→    ),
+   197→  ]
+   198→    .join(' ')
+   199→    .toLowerCase();
+   200→}
+   201→
+   202→type NavItemProps = {
+   203→  label: string;
+   204→  active?: boolean;
+   205→  badge?: string;
+   206→  icon: React.ReactNode;
+   207→  onPress?: () => void;
+   208→};
+   209→
+   210→function NavItem({ label, active, badge, icon, onPress }: NavItemProps) {
+   211→  return (
+   212→    <TouchableOpacity
+   213→      accessibilityRole="button"
+   214→      onPress={onPress}
+   215→      style={[styles.navItem, active && styles.navItemActive]}
+   216→    >
+   217→      {icon}
+   218→      <Text style={styles.navLabel}>{label}</Text>
+   219→      {badge ? (
+   220→        <View style={styles.badge}>
+   221→          <Text style={styles.badgeText}>{badge}</Text>
+   222→        </View>
+   223→      ) : null}
+   224→    </TouchableOpacity>
+   225→  );
+   226→}
+   227→
+   228→type Props = {
+   229→  /** Called when a sidebar item is pressed. The active "Help & About" item
+   230→   * does not navigate. Without the prop (bare Expo usage) items are
+   231→   * pressable no-ops, exactly like the other screens' optional callbacks. */
+   232→  onNavigate?: (destination: HelpNavDestination) => void;
+   233→};
+   234→
+   235→export default function HelpAboutScreen({ onNavigate }: Props) {
+   236→  const { width } = useWindowDimensions();
+   237→  const isWide = width >= 900;
+   238→  const [query, setQuery] = useState('');
+   239→  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+   240→
+   241→  const visibleTopics = useMemo(() => {
+   242→    const q = query.trim().toLowerCase();
+   243→    if (!q) return TOPICS;
+   244→    return TOPICS.filter((topic) => topicHaystack(topic).includes(q));
+   245→  }, [query]);
+   246→
+   247→  const selectedTopic = selectedTopicId
+   248→    ? TOPICS.find((topic) => topic.id === selectedTopicId) ?? null
+   249→    : null;
+   250→
+   251→  const handleNav = (destination: HelpNavDestination) => {
+   252→    onNavigate?.(destination);
+   253→  };
+   254→
+   255→  return (
+   256→    <SafeAreaView style={styles.safeArea}>
+   257→      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+   258→      <View style={[styles.app, !isWide && styles.appNarrow]}>
+   259→        {/* Desktop sidebar; narrow screens get a compact top bar instead. */}
+   260→        {isWide ? (
+   261→          <View style={styles.sidebar}>
+   262→            <View style={styles.brand}>
+   263→              <View style={styles.brandMark}>
+   264→                <ShieldCheck size={28} color={C.white} strokeWidth={2.8} />
+   265→              </View>
+   266→              <Text style={styles.brandText}>
+   267→                Security <Text style={styles.brandAccent}>Scanner</Text>
+   268→              </Text>
+   269→            </View>
+   270→
+   271→            <View style={styles.nav}>
+   272→              <NavItem
+   273→                label="Home"
+   274→                icon={<House size={21} color={C.sidebarIcon} />}
+   275→                onPress={() => handleNav('home')}
+   276→              />
+   277→              <NavItem
+   278→                label="History"
+   279→                icon={<History size={22} color={C.sidebarIcon} />}
+   280→                onPress={() => handleNav('history')}
+   281→              />
+   282→              <NavItem
+   283→                label="Quarantine"
+   284→                badge="2"
+   285→                icon={<Archive size={21} color={C.sidebarIcon} />}
+   286→                onPress={() => handleNav('quarantine')}
+   287→              />
+   288→              <NavItem
+   289→                label="Settings"
+   290→                icon={<Settings size={21} color={C.sidebarIcon} />}
+   291→                onPress={() => handleNav('settings')}
+   292→              />
+   293→              <NavItem
+   294→                label="Help & About"
+   295→                active
+   296→                icon={<LifeBuoy size={21} color={C.white} strokeWidth={2.4} />}
+   297→              />
+   298→            </View>
+   299→
+   300→            <View style={styles.sidebarNote}>
+   301→              <ShieldCheck size={25} color="#65b9ff" />
+   302→              <View style={styles.sidebarNoteText}>
+   303→                <Text style={styles.sidebarNoteTitle}>
+   304→                  Files stay on your phone{"\n"}by default.
+   305→                </Text>
+   306→                <Text style={styles.sidebarNoteBody}>
+   307→                  We don't upload your files without your permission.
+   308→                </Text>
+   309→              </View>
+   310→            </View>
+   311→          </View>
+   312→        ) : (
+   313→          <View style={styles.mobileTopbar}>
+   314→            <View style={styles.mobileBrandMark}>
+   315→              <ShieldCheck size={22} color={C.white} strokeWidth={2.8} />
+   316→            </View>
+   317→            <Text style={styles.mobileBrand}>
+   318→              Security <Text style={styles.brandAccent}>Scanner</Text>
+   319→            </Text>
+   320→            <Text style={styles.mobileUser}>● User</Text>
+   321→          </View>
+   322→        )}
+   323→
+   324→        <View style={styles.main}>
+   325→          {isWide ? (
+   326→            <View style={styles.topbar}>
+   327→              <View />
+   328→              <View style={styles.userMenu}>
+   329→                <Text style={styles.userMenuText}>●  User</Text>
+   330→                <ChevronDown size={16} color={C.text} />
+   331→              </View>
+   332→            </View>
+   333→          ) : null}
+   334→
+   335→          <ScrollView
+   336→            style={styles.scroll}
+   337→            contentContainerStyle={[
+   338→              styles.content,
+   339→              !isWide && styles.contentMobile,
+   340→            ]}
+   341→            showsVerticalScrollIndicator={false}
+   342→          >
+   343→            <View style={styles.pageHeader}>
+   344→              <View style={styles.pageIcon}>
+   345→                <HelpCircle size={35} color={C.primary} strokeWidth={2.4} />
+   346→              </View>
+   347→              <View style={styles.pageHeaderText}>
+   348→                <Text style={styles.pageTitle}>Help & About</Text>
+   349→                <Text style={styles.pageSubtitle}>
+   350→                  Find answers to common questions and learn more about
+   351→                  Security Scanner.
+   352→                </Text>
+   353→              </View>
+   354→            </View>
+   355→
+   356→            {selectedTopic ? (
+   357→              /* In-screen detail panel: title + answer with a clear back
+   358→                 control, replacing the search and topic list. */
+   359→              <View style={styles.detailCard}>
+   360→                <TouchableOpacity
+   361→                  accessibilityRole="button"
+   362→                  style={styles.backButton}
+   363→                  onPress={() => setSelectedTopicId(null)}
+   364→                >
+   365→                  <ArrowLeft size={18} color={C.primary} />
+   366→                  <Text style={styles.backButtonText}>Back to topics</Text>
+   367→                </TouchableOpacity>
+   368→
+   369→                <View style={styles.detailHeader}>
+   370→                  <View
+   371→                    style={[
+   372→                      styles.topicTile,
+   373→                      { backgroundColor: selectedTopic.tileColor },
+   374→                    ]}
+   375→                  >
+   376→                    {React.createElement(TOPIC_ICONS[selectedTopic.icon], {
+   377→                      size: 24,
+   378→                      color: selectedTopic.iconColor,
+   379→                      strokeWidth: 2.4,
+   380→                    })}
+   381→                  </View>
+   382→                  <Text style={styles.detailTitle}>{selectedTopic.title}</Text>
+   383→                </View>
+   384→
+   385→                <View style={styles.detailDivider} />
+   386→
+   387→                {selectedTopic.answer.map((block, index) =>
+   388→                  block.type === 'paragraph' ? (
+   389→                    <Text key={index} style={styles.answerParagraph}>
+   390→                      {block.text}
+   391→                    </Text>
+   392→                  ) : (
+   393→                    <View key={index} style={styles.bulletRow}>
+   394→                      <View style={styles.bulletDot} />
+   395→                      <Text style={styles.answerParagraph}>
+   396→                        <Text style={styles.bulletLabel}>{block.label}</Text>
+   397→                        {' — '}
+   398→                        {block.text}
+   399→                      </Text>
+   400→                    </View>
+   401→                  ),
+   402→                )}
+   403→              </View>
+   404→            ) : (
+   405→              <>
+   406→                <View style={styles.searchCard}>
+   407→                  <Search size={18} color={C.muted} />
+   408→                  <TextInput
+   409→                    accessibilityLabel="Search help topics"
+   410→                    style={styles.searchInput}
+   411→                    value={query}
+   412→                    onChangeText={setQuery}
+   413→                    placeholder="Search help topics..."
+   414→                    placeholderTextColor="#8aa8cf"
+   415→                  />
+   416→                </View>
+   417→
+   418→                <Text style={styles.sectionLabel}>Suggested topics</Text>
+   419→
+   420→                {visibleTopics.length === 0 ? (
+   421→                  <View style={styles.emptyState}>
+   422→                    <Search size={26} color="#9db8dc" />
+   423→                    <Text style={styles.emptyStateText}>
+   424→                      No help topics found.
+   425→                    </Text>
+   426→                    <Text style={styles.emptyStateHint}>
+   427→                      Try a different keyword.
+   428→                    </Text>
+   429→                  </View>
+   430→                ) : (
+   431→                  visibleTopics.map((topic) => (
+   432→                    <TouchableOpacity
+   433→                      key={topic.id}
+   434→                      accessibilityRole="button"
+   435→                      style={styles.topicCard}
+   436→                      onPress={() => setSelectedTopicId(topic.id)}
+   437→                    >
+   438→                      <View
+   439→                        style={[
+   440→                          styles.topicTile,
+   441→                          { backgroundColor: topic.tileColor },
+   442→                        ]}
+   443→                      >
+   444→                        {React.createElement(TOPIC_ICONS[topic.icon], {
+   445→                          size: 22,
+   446→                          color: topic.iconColor,
+   447→                          strokeWidth: 2.4,
+   448→                        })}
+   449→                      </View>
+   450→                      <View style={styles.topicText}>
+   451→                        <Text style={styles.topicTitle}>{topic.title}</Text>
+   452→                        <Text style={styles.topicDescription}>
+   453→                          {topic.description}
+   454→                        </Text>
+   455→                      </View>
+   456→                      <ChevronRight size={20} color={C.faint} />
+   457→                    </TouchableOpacity>
+   458→                  ))
+   459→                )}
+   460→              </>
+   461→            )}
+   462→
+   463→            {/* Footer information card */}
+   464→            <View style={[styles.footerCard, !isWide && styles.footerCardNarrow]}>
+   465→              <View style={styles.footerColumn}>
+   466→                <View style={[styles.footerTile, { backgroundColor: C.tileBg }]}>
+   467→                  <Info size={20} color={C.primary} />
+   468→                </View>
+   469→                <View style={styles.footerText}>
+   470→                  <Text style={styles.footerLabel}>App version</Text>
+   471→                  <Text style={styles.footerValue}>1.0.0</Text>
+   472→                </View>
+   473→              </View>
+   474→
+   475→              <View
+   476→                style={[
+   477→                  styles.footerDivider,
+   478→                  !isWide && styles.footerDividerNarrow,
+   479→                ]}
+   480→              />
+   481→
+   482→              <View style={styles.footerColumn}>
+   483→                <View style={[styles.footerTile, { backgroundColor: C.tileBg }]}>
+   484→                  <Mail size={20} color={C.primary} />
+   485→                </View>
+   486→                <View style={styles.footerText}>
+   487→                  <Text style={styles.footerLabel}>Need more help?</Text>
+   488→                  <Text style={styles.footerBody}>
+   489→                    Contact support at{' '}
+   490→                    <Text selectable style={styles.footerEmail}>
+   491→                      support@securityscanner.app
+   492→                    </Text>
+   493→                  </Text>
+   494→                </View>
+   495→              </View>
+   496→            </View>
+   497→          </ScrollView>
+   498→        </View>
+   499→      </View>
+   500→    </SafeAreaView>
+   501→  );
+   502→}
+   503→
+   504→const styles = StyleSheet.create({
+   505→  safeArea: {
+   506→    flex: 1,
+   507→    backgroundColor: C.bg,
+   508→  },
+   509→  app: {
+   510→    flex: 1,
+   511→    flexDirection: 'row',
+   512→    backgroundColor: C.bg,
+   513→  },
+   514→  appNarrow: {
+   515→    flexDirection: 'column',
+   516→  },
+   517→  sidebar: {
+   518→    width: 280,
+   519→    backgroundColor: C.navy,
+   520→    paddingTop: 17,
+   521→    paddingHorizontal: 15,
+   522→  },
+   523→  brand: {
+   524→    height: 66,
+   525→    flexDirection: 'row',
+   526→    alignItems: 'center',
+   527→    borderBottomWidth: 1,
+   528→    borderBottomColor: C.navyBorder,
+   529→    marginHorizontal: -15,
+   530→    paddingLeft: 25,
+   531→    paddingBottom: 15,
+   532→  },
+   533→  brandMark: {
+   534→    width: 38,
+   535→    height: 42,
+   536→    borderRadius: 13,
+   537→    backgroundColor: C.primary,
+   538→    alignItems: 'center',
+   539→    justifyContent: 'center',
+   540→    marginRight: 10,
+   541→  },
+   542→  brandText: {
+   543→    color: C.white,
+   544→    fontSize: 20,
+   545→    fontWeight: '800',
+   546→    letterSpacing: -0.5,
+   547→  },
+   548→  brandAccent: {
+   549→    color: C.brandAccent,
+   550→  },
+   551→  nav: {
+   552→    paddingTop: 9,
+   553→    gap: 6,
+   554→  },
+   555→  navItem: {
+   556→    minHeight: 46,
+   557→    borderRadius: 8,
+   558→    flexDirection: 'row',
+   559→    alignItems: 'center',
+   560→    paddingHorizontal: 13,
+   561→    gap: 14,
+   562→  },
+   563→  navItemActive: {
+   564→    backgroundColor: C.activeNav,
+   565→  },
+   566→  navLabel: {
+   567→    color: C.sidebarText,
+   568→    fontSize: 15,
+   569→    fontWeight: '600',
+   570→    flex: 1,
+   571→  },
+   572→  badge: {
+   573→    minWidth: 23,
+   574→    height: 23,
+   575→    borderRadius: 12,
+   576→    backgroundColor: C.badge,
+   577→    alignItems: 'center',
+   578→    justifyContent: 'center',
+   579→    paddingHorizontal: 5,
+   580→  },
+   581→  badgeText: {
+   582→    color: C.white,
+   583→    fontSize: 12,
+   584→    fontWeight: '700',
+   585→  },
+   586→  sidebarNote: {
+   587→    marginTop: 'auto',
+   588→    marginBottom: 24,
+   589→    paddingTop: 20,
+   590→    borderTopWidth: 1,
+   591→    borderTopColor: C.noteBorder,
+   592→    flexDirection: 'row',
+   593→    gap: 12,
+   594→  },
+   595→  sidebarNoteText: {
+   596→    flex: 1,
+   597→  },
+   598→  sidebarNoteTitle: {
+   599→    color: C.sidebarText,
+   600→    fontSize: 12,
+   601→    fontWeight: '700',
+   602→    lineHeight: 19,
+   603→  },
+   604→  sidebarNoteBody: {
+   605→    color: C.sidebarBody,
+   606→    fontSize: 12,
+   607→    lineHeight: 19,
+   608→    marginTop: 5,
+   609→  },
+   610→  mobileTopbar: {
+   611→    minHeight: 62,
+   612→    backgroundColor: C.navy,
+   613→    flexDirection: 'row',
+   614→    alignItems: 'center',
+   615→    paddingHorizontal: 15,
+   616→  },
+   617→  mobileBrandMark: {
+   618→    width: 34,
+   619→    height: 38,
+   620→    borderRadius: 11,
+   621→    backgroundColor: C.primary,
+   622→    alignItems: 'center',
+   623→    justifyContent: 'center',
+   624→    marginRight: 10,
+   625→  },
+   626→  mobileBrand: {
+   627→    color: C.white,
+   628→    fontSize: 17,
+   629→    fontWeight: '800',
+   630→    flex: 1,
+   631→  },
+   632→  mobileUser: {
+   633→    color: C.white,
+   634→    fontSize: 13,
+   635→  },
+   636→  main: {
+   637→    flex: 1,
+   638→    minWidth: 0,
+   639→  },
+   640→  topbar: {
+   641→    height: 62,
+   642→    backgroundColor: C.card,
+   643→    borderBottomWidth: 1,
+   644→    borderBottomColor: '#e3edf9',
+   645→    flexDirection: 'row',
+   646→    alignItems: 'center',
+   647→    justifyContent: 'space-between',
+   648→    paddingHorizontal: 29,
+   649→  },
+   650→  userMenu: {
+   651→    flexDirection: 'row',
+   652→    alignItems: 'center',
+   653→    gap: 7,
+   654→  },
+   655→  userMenuText: {
+   656→    color: C.text,
+   657→    fontSize: 14,
+   658→    fontWeight: '600',
+   659→  },
+   660→  scroll: {
+   661→    flex: 1,
+   662→  },
+   663→  content: {
+   664→    paddingHorizontal: 38,
+   665→    paddingTop: 20,
+   666→    paddingBottom: 34,
+   667→    gap: 14,
+   668→  },
+   669→  contentMobile: {
+   670→    paddingHorizontal: 16,
+   671→    paddingTop: 20,
+   672→  },
+   673→  pageHeader: {
+   674→    flexDirection: 'row',
+   675→    alignItems: 'center',
+   676→    gap: 23,
+   677→    marginBottom: 5,
+   678→  },
+   679→  pageIcon: {
+   680→    width: 71,
+   681→    height: 71,
+   682→    borderRadius: 15,
+   683→    backgroundColor: C.tileBg,
+   684→    alignItems: 'center',
+   685→    justifyContent: 'center',
+   686→  },
+   687→  pageHeaderText: {
+   688→    flex: 1,
+   689→  },
+   690→  pageTitle: {
+   691→    color: C.text,
+   692→    fontSize: 30,
+   693→    fontWeight: '800',
+   694→    letterSpacing: -0.8,
+   695→  },
+   696→  pageSubtitle: {
+   697→    color: C.muted,
+   698→    fontSize: 16,
+   699→    lineHeight: 23,
+   700→    marginTop: 2,
+   701→  },
+   702→  searchCard: {
+   703→    backgroundColor: C.card,
+   704→    borderColor: C.border,
+   705→    borderWidth: 1,
+   706→    borderRadius: 10,
+   707→    paddingHorizontal: 14,
+   708→    paddingVertical: 6,
+   709→    flexDirection: 'row',
+   710→    alignItems: 'center',
+   711→    gap: 10,
+   712→  },
+   713→  searchInput: {
+   714→    flex: 1,
+   715→    minHeight: 42,
+   716→    fontSize: 14,
+   717→    color: C.text,
+   718→    paddingVertical: 0,
+   719→  },
+   720→  sectionLabel: {
+   721→    color: C.text,
+   722→    fontSize: 14,
+   723→    fontWeight: '700',
+   724→    marginTop: 4,
+   725→  },
+   726→  topicCard: {
+   727→    backgroundColor: C.card,
+   728→    borderColor: C.border,
+   729→    borderWidth: 1,
+   730→    borderRadius: 10,
+   731→    padding: 16,
+   732→    flexDirection: 'row',
+   733→    alignItems: 'center',
+   734→    gap: 14,
+   735→    shadowColor: '#91afd4',
+   736→    shadowOpacity: 0.06,
+   737→    shadowRadius: 9,
+   738→    shadowOffset: { width: 0, height: 2 },
+   739→    elevation: 1,
+   740→  },
+   741→  topicTile: {
+   742→    width: 46,
+   743→    height: 46,
+   744→    borderRadius: 10,
+   745→    alignItems: 'center',
+   746→    justifyContent: 'center',
+   747→  },
+   748→  topicText: {
+   749→    flex: 1,
+   750→  },
+   751→  topicTitle: {
+   752→    color: C.text,
+   753→    fontSize: 15,
+   754→    fontWeight: '700',
+   755→  },
+   756→  topicDescription: {
+   757→    color: C.muted,
+   758→    fontSize: 13,
+   759→    lineHeight: 19,
+   760→    marginTop: 3,
+   761→  },
+   762→  emptyState: {
+   763→    backgroundColor: C.card,
+   764→    borderColor: C.border,
+   765→    borderWidth: 1,
+   766→    borderRadius: 10,
+   767→    paddingVertical: 30,
+   768→    alignItems: 'center',
+   769→    gap: 8,
+   770→  },
+   771→  emptyStateText: {
+   772→    color: C.label,
+   773→    fontSize: 14,
+   774→    fontWeight: '600',
+   775→  },
+   776→  emptyStateHint: {
+   777→    color: '#8aa8cf',
+   778→    fontSize: 12,
+   779→  },
+   780→  detailCard: {
+   781→    backgroundColor: C.card,
+   782→    borderColor: C.border,
+   783→    borderWidth: 1,
+   784→    borderRadius: 12,
+   785→    padding: 20,
+   786→    gap: 12,
+   787→  },
+   788→  backButton: {
+   789→    flexDirection: 'row',
+   790→    alignItems: 'center',
+   791→    gap: 8,
+   792→    alignSelf: 'flex-start',
+   793→    paddingVertical: 4,
+   794→    paddingRight: 8,
+   795→  },
+   796→  backButtonText: {
+   797→    color: C.primary,
+   798→    fontSize: 13,
+   799→    fontWeight: '600',
+   800→  },
+   801→  detailHeader: {
+   802→    flexDirection: 'row',
+   803→    alignItems: 'center',
+   804→    gap: 14,
+   805→  },
+   806→  detailTitle: {
+   807→    color: C.text,
+   808→    fontSize: 19,
+   809→    fontWeight: '800',
+   810→    flex: 1,
+   811→  },
+   812→  detailDivider: {
+   813→    height: 1,
+   814→    backgroundColor: C.borderSoft,
+   815→  },
+   816→  answerParagraph: {
+   817→    color: C.body,
+   818→    fontSize: 14,
+   819→    lineHeight: 22,
+   820→  },
+   821→  bulletRow: {
+   822→    flexDirection: 'row',
+   823→    gap: 10,
+   824→    paddingRight: 4,
+   825→  },
+   826→  bulletDot: {
+   827→    width: 6,
+   828→    height: 6,
+   829→    borderRadius: 3,
+   830→    backgroundColor: C.primary,
+   831→    marginTop: 8,
+   832→  },
+   833→  bulletLabel: {
+   834→    color: C.text,
+   835→    fontWeight: '700',
+   836→  },
+   837→  footerCard: {
+   838→    backgroundColor: C.card,
+   839→    borderColor: C.border,
+   840→    borderWidth: 1,
+   841→    borderRadius: 10,
+   842→    paddingVertical: 16,
+   843→    paddingHorizontal: 18,
+   844→    flexDirection: 'row',
+   845→    alignItems: 'stretch',
+   846→    marginTop: 8,
+   847→  },
+   848→  footerCardNarrow: {
+   849→    flexDirection: 'column',
+   850→  },
+   851→  footerColumn: {
+   852→    flex: 1,
+   853→    flexDirection: 'row',
+   854→    alignItems: 'center',
+   855→    gap: 12,
+   856→  },
+   857→  footerTile: {
+   858→    width: 40,
+   859→    height: 40,
+   860→    borderRadius: 10,
+   861→    alignItems: 'center',
+   862→    justifyContent: 'center',
+   863→  },
+   864→  footerText: {
+   865→    flex: 1,
+   866→  },
+   867→  footerLabel: {
+   868→    color: C.label,
+   869→    fontSize: 12,
+   870→  },
+   871→  footerValue: {
+   872→    color: C.text,
+   873→    fontSize: 15,
+   874→    fontWeight: '800',
+   875→    marginTop: 2,
+   876→  },
+   877→  footerBody: {
+   878→    color: C.body,
+   879→    fontSize: 13,
+   880→    lineHeight: 20,
+   881→    marginTop: 2,
+   882→  },
+   883→  footerEmail: {
+   884→    color: C.primary,
+   885→    fontWeight: '600',
+   886→  },
+   887→  footerDivider: {
+   888→    width: 1,
+   889→    backgroundColor: C.borderSoft,
+   890→    marginHorizontal: 18,
+   891→  },
+   892→  footerDividerNarrow: {
+   893→    width: 'auto',
+   894→    height: 1,
+   895→    marginHorizontal: 0,
+   896→    marginVertical: 14,
+   897→  },
+   898→});
+   899→
