@@ -1,6 +1,6 @@
-# Security Scanner — Screens 1–6 (Expo + React Native)
+# Security Scanner — Screens 1–7 (Expo + React Native)
 
-The first six screens of the Android security scanner:
+The first seven screens of the Android security scanner:
 
 1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
@@ -8,6 +8,7 @@ The first six screens of the Android security scanner:
 4. **Scan-progress screen** — `SecurityScannerScanProgressScreen.tsx`, byte-identical to the design hand-off (`upload/4.md`). Live progress ring + bar demo, honest "this is placeholder UI, not a real scan" messaging, cancel and finish states, and optional `onBackHome` / `onCancel` / `onScanComplete` callbacks for the app shell.
 5. **Scan-result screen** — `SecurityScannerResultScreen.tsx`, byte-identical to the design hand-off (`upload/5.md`). "Threat found" result card, file metadata, quarantine explainer, next steps, and View quarantine / Delete permanently (confirm first) / Scan another actions with optional callbacks.
 6. **Website-link screen** — `WebsiteLinkScreen.tsx`, byte-identical to the design hand-off (`upload/6.md`). URL input with inline validation, Paste from clipboard (`expo-clipboard`), example chips, honest "this cannot guarantee a website is safe" messaging, and `onBackHome` / `onCheckLink` callbacks.
+7. **Link-scan-result screen** — `LinkScanResultScreen.tsx`, byte-identical to the design hand-off (`upload/7.md`). "Likely dangerous" verdict card for a checked URL, copy/open-link actions, what-we-checked list, scan details, and Check-another-link / Back-to-Home actions with optional callbacks.
 
 ## Run it
 
@@ -30,9 +31,11 @@ import SecurityScannerScanProgressScreen from './SecurityScannerScanProgressScre
 import SecurityScannerResultScreen from './SecurityScannerResultScreen';
 // or
 import WebsiteLinkScreen from './WebsiteLinkScreen';
+// or
+import LinkScanResultScreen from './LinkScanResultScreen';
 
 export default function App() {
-  return <WebsiteLinkScreen />;
+  return <LinkScanResultScreen />;
 }
 ```
 
@@ -49,8 +52,9 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
 | `SecurityScannerScanProgressScreen.tsx` | Screen 4: scan progress (byte-identical to the hand-off) |
 | `SecurityScannerResultScreen.tsx` | Screen 5: scan result (byte-identical to the hand-off) |
 | `WebsiteLinkScreen.tsx` | Screen 6: website link check (byte-identical to the hand-off) |
+| `LinkScanResultScreen.tsx` | Screen 7: link scan result (byte-identical to the hand-off) |
 | `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`), imported first in `App.tsx` |
-| `App.tsx` | Renders the welcome screen (swap to preview any of the six screens) |
+| `App.tsx` | Renders the welcome screen (swap to preview any of the seven screens) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
 | `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker` and `expo-clipboard`) |
@@ -164,13 +168,34 @@ Byte-identical to the hand-off. What it does:
   are not claims about those websites' safety.
 - **Check link** — calls `onCheckLink(url)` with the validated URL. The
   hand-off deliberately does NOT decide the result: connect your real URL
-  reputation/scanning service there. In the web preview, a valid check shows
-  an honest "result screen isn't connected yet" notice instead of a fake
-  verdict; an invalid one shows the validation error.
+  reputation/scanning service there. In the web preview, a valid check now
+  forwards the URL and the live check timestamp to the link-scan-result
+  screen (screen 7); an invalid one shows the validation error.
 - **Back to Home** — `onBackHome` callback; the web preview returns to the
   dashboard, and the dashboard's "Check a link" card routes here.
 - **Responsive** — sidebar on layouts ≥ 900px wide; below that the brand
   moves into the top bar.
+
+## Link-scan-result screen (screen 7)
+
+Byte-identical to the hand-off. What it does:
+
+- **Verdict card** — "Likely dangerous" banner and recommendation copy are the
+  hand-off's sample result; connect a real URL reputation service to drive the
+  actual verdict, as the hand-off notes.
+- **Link actions** — Copy writes the URL to the clipboard via `expo-clipboard`
+  and flips to "Copied" (with an `Alert.alert` confirmation on native; the web
+  preview bridges it to a browser dialog). The external-link button shows a
+  caution dialog and intentionally does NOT open the flagged URL.
+- **What we checked / Scan details** — checklist and metadata grid, including
+  the checked URL and the `checkedAt` timestamp.
+- **Props** — `url` / `checkedAt` are optional (defaults match the hand-off
+  sample). The web preview passes the URL typed on screen 6 through query
+  params, plus a live "Nov 2, 2026  •  10:24 AM"-style timestamp.
+- **Callbacks** — `onBackHome` and `onCheckAnotherLink` are optional; in the
+  web preview they return to the dashboard and to the website-link screen.
+- **Responsive** — sidebar on layouts ≥ 900px wide; the top grid, details grid
+  and action buttons stack below that.
 
 ## Known notes
 

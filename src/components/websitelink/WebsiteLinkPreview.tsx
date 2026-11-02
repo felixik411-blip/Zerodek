@@ -25,65 +25,34 @@ function WebsiteLinkPreviewInner() {
 
   // The hand-off only reports a syntactically valid URL through this
   // callback ("connect it to your real URL reputation/scanning service").
-  // No link-check result screen has been handed off yet, so instead of a
-  // dead button the glue layer shows an honest, auto-dismissing notice —
-  // same plain-language pattern the dashboard uses for not-yet-connected
-  // actions. Nothing is faked as a real scan result.
-  const [toastUrl, setToastUrl] = React.useState<string | null>(null);
-  const toastTimer = React.useRef<number | null>(null);
-
-  const handleCheckLink = React.useCallback((url: string) => {
-    setToastUrl(url);
-    if (toastTimer.current) window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToastUrl(null), 5000);
-  }, []);
-
-  React.useEffect(
-    () => () => {
-      if (toastTimer.current) window.clearTimeout(toastTimer.current);
+  // The link-check result screen (screen 7) now exists, so the glue layer
+  // forwards the checked URL plus the live check timestamp to it. The
+  // verdict shown there comes from the result hand-off itself.
+  const handleCheckLink = React.useCallback(
+    (url: string) => {
+      const now = new Date();
+      // Mirrors the hand-off's own "Oct 30, 2025  •  10:24 AM" format.
+      const checkedAt = `${now.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })}  •  ${now.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      })}`;
+      const query = new URLSearchParams({ url, checkedAt }).toString();
+      // Trailing slash on purpose — see ScanProgressPreview for the
+      // redirect loop rationale.
+      router.push(`/link-scan-result/?${query}`);
     },
-    [],
+    [router],
   );
 
   return (
-    <>
-      <ScreenLoader load={loadScreen} screenProps={{ onBackHome: handleBackHome, onCheckLink: handleCheckLink }} />
-      {toastUrl && (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            position: 'fixed',
-            left: 16,
-            right: 16,
-            bottom: 16,
-            display: 'flex',
-            justifyContent: 'center',
-            pointerEvents: 'none',
-            zIndex: 50,
-          }}
-        >
-          <div
-            style={{
-              maxWidth: 560,
-              backgroundColor: '#192D47',
-              color: '#F0F5FC',
-              fontSize: 13,
-              lineHeight: '20px',
-              padding: '12px 18px',
-              borderRadius: 10,
-              boxShadow: '0 8px 24px rgba(23, 43, 73, 0.28)',
-              fontFamily: FONT,
-              textAlign: 'center',
-            }}
-          >
-            Link check requested for <strong>{toastUrl}</strong> — the
-            link-check result screen isn&rsquo;t connected in this preview
-            yet, so there is no result to show.
-          </div>
-        </div>
-      )}
-    </>
+    <ScreenLoader
+      load={loadScreen}
+      screenProps={{ onBackHome: handleBackHome, onCheckLink: handleCheckLink }}
+    />
   );
 }
 
@@ -93,8 +62,8 @@ function WebsiteLinkPreviewInner() {
  *
  * The dashboard's "Check a link" card routes here, and this screen's
  * callbacks are wired at the glue level: `onBackHome` returns to the
- * dashboard and `onCheckLink` shows an honest notice until a real
- * link-check result screen exists. The hand-off component itself is not
+ * dashboard and `onCheckLink` forwards the checked URL and timestamp to
+ * the link-scan-result screen. The hand-off component itself is not
  * modified.
  */
 export default function WebsiteLinkPreview() {
