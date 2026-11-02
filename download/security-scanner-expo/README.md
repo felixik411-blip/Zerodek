@@ -65,8 +65,9 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
 | `QuarantineScreen.tsx` | Screen 8: quarantined files (byte-identical to the hand-off) |
 | `QuarantineDetailsScreen.tsx` | Screen 9: quarantined file details (byte-identical to the hand-off) |
 | `ScanHistoryScreen.tsx` | Screen 10: scan history (byte-identical to the hand-off) |
+| `SettingsScreen.tsx` | Screen 11: settings (byte-identical to the hand-off) |
 | `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`), imported first in `App.tsx` |
-| `App.tsx` | Renders the welcome screen (swap to preview any of the ten screens) |
+| `App.tsx` | Renders the welcome screen (swap to preview any of the eleven screens) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
 | `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`, `expo-clipboard`, `lucide-react-native`, `react-native-svg`) |
@@ -288,6 +289,37 @@ Byte-identical to the hand-off. What it does:
 - **Responsive** — the sidebar hides below 900px (hand-off behaviour), the
   table becomes stacked cards, and a menu placeholder appears in the top
   bar; connect it to your navigation drawer when one exists.
+
+## Settings screen (screen 11)
+
+Byte-identical to the hand-off. What it does:
+
+- **Notifications** — the "Enable notifications" switch is live local state
+  (`notificationsEnabled`, on by default) with the hand-off's track colours.
+- **Quarantine retention** — live local state (`retentionDays`, 30 by
+  default) reflected in "Current retention period" and the auto-delete
+  sentence. The hand-off wires the "Delete quarantined files" action to
+  toggle the period 30 ↔ 14 as a placeholder demo; its own note says to
+  connect that action to the app's real screens, so the web preview bridges
+  it to the quarantined-files screen (screen 8), where deletion actually
+  lives. In this package you may keep the demo toggle or replace the
+  `onPress` with a call into your quarantine storage.
+- **Sidebar** — Home, History, Quarantine (badge "2") and Settings (active).
+  The hand-off renders the items without `onPress`; in the web preview a
+  glue bridge routes them to the dashboard, scan-history (screen 10) and
+  quarantined-files (screen 8) screens.
+- **Placeholders by design** — "Learn more about our privacy", "Terms of
+  service" and "Privacy policy" render as tappable rows with no navigation,
+  exactly as the hand-off ships them.
+- **Dependencies** — uses `lucide-react-native`, which requires
+  `react-native-svg`; both are already in `package.json` (screen 9).
+- **Responsive** — the sidebar shows at ≥900px; below that the hand-off
+  renders a compact top bar. Note the hand-off keeps its root container in
+  `flexDirection: "row"` at every width, so on narrow screens the top bar
+  sits beside the content and the fixed 74/76px card indents squeeze the
+  columns. The web preview compensates with glue-only CSS in
+  `SettingsPreview.tsx` (stacked top bar and card rows); this package keeps
+  the hand-off file byte-identical, so on a device it renders as written.
 
 ## Known notes
 
