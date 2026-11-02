@@ -35,9 +35,34 @@ function ScanProgressPreviewInner() {
   }, []);
 
   const handleScanComplete = React.useCallback(() => {
-    // A scan-result screen hasn't been handed off yet; when it arrives, this
-    // is where the flow continues.
-  }, []);
+    // The demo scan just reached 100%. Give the hand-off's own "Scan
+    // complete" state a beat so it is actually visible, then continue the
+    // flow to the scan-result screen (screen 5), carrying the scanned
+    // file's metadata plus the scan's date/time. Params are only sent when
+    // present so a direct visit to /scan-progress/ keeps the hand-offs'
+    // own defaults on both screens.
+    const query = new URLSearchParams();
+    if (fileName) query.set('file', fileName);
+    if (fileType) query.set('type', fileType);
+    if (fileSize) query.set('size', fileSize);
+    const now = new Date();
+    query.set(
+      'scanDate',
+      now.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+    );
+    query.set(
+      'scanTime',
+      now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+    );
+    window.setTimeout(
+      () => router.push(`/scan-result/?${query.toString()}`),
+      1200,
+    );
+  }, [fileName, fileType, fileSize, router]);
 
   const screenProps = React.useMemo(
     () => ({

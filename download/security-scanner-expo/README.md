@@ -1,11 +1,12 @@
-# Security Scanner — Screens 1–4 (Expo + React Native)
+# Security Scanner — Screens 1–5 (Expo + React Native)
 
-The first four screens of the Android security scanner:
+The first five screens of the Android security scanner:
 
 1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
 3. **File-selection screen** — `SecurityScannerFileSelectionScreen.tsx`, byte-identical to the design hand-off (`upload/3.md`). Sample file list with tabs, row selection, "Browse device" via the native document picker, and honest scanner notices.
 4. **Scan-progress screen** — `SecurityScannerScanProgressScreen.tsx`, byte-identical to the design hand-off (`upload/4.md`). Live progress ring + bar demo, honest "this is placeholder UI, not a real scan" messaging, cancel and finish states, and optional `onBackHome` / `onCancel` / `onScanComplete` callbacks for the app shell.
+5. **Scan-result screen** — `SecurityScannerResultScreen.tsx`, byte-identical to the design hand-off (`upload/5.md`). "Threat found" result card, file metadata, quarantine explainer, next steps, and View quarantine / Delete permanently (confirm first) / Scan another actions with optional callbacks.
 
 ## Run it
 
@@ -15,8 +16,8 @@ npx expo install --fix   # aligns library versions with the installed Expo SDK
 npx expo start           # scan the QR code with the Expo Go app, or press `a` for Android
 ```
 
-By default `App.tsx` shows the welcome screen. To preview the dashboard, the
-file-selection screen, or the scan-progress screen instead, swap the import:
+By default `App.tsx` shows the welcome screen. To preview any of the other
+screens instead, swap the import:
 
 ```tsx
 import SecurityScannerDashboard from './SecurityScannerDashboard';
@@ -24,9 +25,11 @@ import SecurityScannerDashboard from './SecurityScannerDashboard';
 import SecurityScannerFileSelectionScreen from './SecurityScannerFileSelectionScreen';
 // or
 import SecurityScannerScanProgressScreen from './SecurityScannerScanProgressScreen';
+// or
+import SecurityScannerResultScreen from './SecurityScannerResultScreen';
 
 export default function App() {
-  return <SecurityScannerScanProgressScreen />;
+  return <SecurityScannerResultScreen />;
 }
 ```
 
@@ -41,8 +44,9 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
 | `SecurityScannerDashboard.tsx` | Screen 2: dashboard (hand-off Home + real History/Quarantine/Settings sub-screens) |
 | `SecurityScannerFileSelectionScreen.tsx` | Screen 3: file selection (byte-identical to the hand-off) |
 | `SecurityScannerScanProgressScreen.tsx` | Screen 4: scan progress (byte-identical to the hand-off) |
-| `glyphPatches.ts` | Icon glyph alias (`file-archive` → `zip-box`), imported first in `App.tsx` |
-| `App.tsx` | Renders the welcome screen (swap to preview any of the four screens) |
+| `SecurityScannerResultScreen.tsx` | Screen 5: scan result (byte-identical to the hand-off) |
+| `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`), imported first in `App.tsx` |
+| `App.tsx` | Renders the welcome screen (swap to preview any of the five screens) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
 | `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`) |
@@ -118,6 +122,29 @@ Byte-identical to the hand-off. What it does:
 - **Responsive** — sidebar on layouts ≥ 1000px wide; below that the brand
   moves into the top bar.
 
+## Scan-result screen (screen 5)
+
+Byte-identical to the hand-off. What it does:
+
+- **Result card** — "Threat found" banner (sample result content, as the
+  hand-off notes: only show it when the scanner really detected a threat),
+  file summary, scan date/type/result metadata, "What happened?" explainer,
+  and the quarantined banner.
+- **Delete permanently** — asks for confirmation first (`Alert.alert` on
+  native; the web preview bridges it to a browser confirm dialog). On
+  confirm the card flips to the hand-off's "File deleted" state; the
+  `onDeletePermanently` callback is where real file storage removal goes.
+- **View quarantine** — `onViewQuarantine` callback; the web preview
+  deep-links to the dashboard's Quarantine sub-screen.
+- **Scan another file** — `onScanAnother` callback; the web preview returns
+  to the file-selection screen.
+- **File details** — configurable via `fileName` / `fileType` / `fileSize` /
+  `scanDate` / `scanTime` props (defaults match the hand-off sample). The
+  web preview passes the scanned file's metadata through query params.
+- **Responsive** — two-column layout (result + side cards) on wide screens;
+  stacked single column, stacked action buttons and stacked metadata below
+  1000px.
+
 ## Known notes
 
 - The hand-off references the icon name `file-archive`, which does not exist
@@ -128,6 +155,13 @@ Byte-identical to the hand-off. What it does:
   **without touching the byte-identical screen code**. If you'd rather change
   the design source, replace `'file-archive'` with `'zip-box'` in the screen
   and delete the patch file.
+- Same situation on the scan-result screen: the hand-off uses `shield-minus`,
+  which also does not exist in the glyphmap. `glyphPatches.ts` aliases it to
+  the real minus-shield glyph `shield-remove` (Material Design Icons names
+  "minus" "remove"), again without touching the byte-identical screen code.
+- On Android/iOS `Alert.alert` is the real native dialog. react-native-web's
+  `Alert` is a silent no-op, which the web preview bridges to a browser
+  confirm dialog — not part of this Expo package.
 
 ## Welcome screen: interactive & UI states (added during review)
 

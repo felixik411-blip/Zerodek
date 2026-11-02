@@ -8,6 +8,11 @@ type ScreenLoaderProps<P extends object> = {
   load: () => Promise<{ default: React.ComponentType<P> }>;
   /** Props forwarded to the screen once its module has loaded. */
   screenProps?: P;
+  /** Optional one-shot callback fired after the screen module has rendered
+   * (its DOM is committed). Lets a wrapper act on the rendered screen — e.g.
+   * the dashboard's `?view=Quarantine` bridge. Keep the identity stable
+   * (useCallback) so it is not re-fired on unrelated re-renders. */
+  onScreenReady?: () => void;
   /** Page background behind the loading / error states. */
   backgroundColor?: string;
 };
@@ -27,6 +32,7 @@ const FONT =
 export default function ScreenLoader<P extends object>({
   load,
   screenProps,
+  onScreenReady,
   backgroundColor = '#F7FAFE',
 }: ScreenLoaderProps<P>) {
   const [Screen, setScreen] = React.useState<React.ComponentType<P> | null>(null);
@@ -63,6 +69,12 @@ export default function ScreenLoader<P extends object>({
   }, [Screen, failed, attempt]);
 
   const retry = React.useCallback(() => setAttempt(value => value + 1), []);
+
+  // Fire once per loaded screen (including the self-healing late arrival).
+  // The screen's DOM is committed when this effect runs.
+  React.useEffect(() => {
+    if (Screen) onScreenReady?.();
+  }, [Screen, onScreenReady]);
 
   if (Screen) {
     // `React.createElement` instead of JSX: generic components in JSX hit
