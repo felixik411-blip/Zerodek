@@ -1,0 +1,238 @@
+import React, { useState } from 'react';
+import {
+  Keyboard, Pressable, ScrollView, StatusBar, StyleSheet, Text,
+  TextInput, View, useWindowDimensions,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
+
+const C = {
+  navy: '#192D47', text: '#172B49', blue: '#0878F9',
+  paleBlue: '#EAF3FF', bg: '#F7FAFE', white: '#FFFFFF',
+  muted: '#5E7599', border: '#DCE8F8', red: '#FF454A',
+};
+
+type Props = {
+  onBackHome?: () => void;
+  onCheckLink?: (url: string) => void;
+};
+
+const EXAMPLES = [
+  'https://example.com',
+  'https://bit.ly/abc123',
+  'https://malicious-site.fake',
+];
+
+export default function WebsiteLinkScreen({ onBackHome, onCheckLink }: Props) {
+  const { width } = useWindowDimensions();
+  const desktop = width >= 900;
+  const [url, setUrl] = useState('');
+  const [attempted, setAttempted] = useState(false);
+  const [error, setError] = useState('Please enter a valid URL (e.g. https://example.com)');
+
+  const isValidUrl = (value: string) => {
+    try {
+      const parsed = new URL(value.trim());
+      return ['http:', 'https:'].includes(parsed.protocol) && parsed.hostname.includes('.');
+    } catch {
+      return false;
+    }
+  };
+
+  const checkLink = () => {
+    Keyboard.dismiss();
+    setAttempted(true);
+    const value = url.trim();
+
+    if (!isValidUrl(value)) {
+      setError('Please enter a valid URL (e.g. https://example.com)');
+      return;
+    }
+
+    setError('');
+    // Connect this callback to your actual URL reputation/scanning service.
+    onCheckLink?.(value);
+  };
+
+  const pasteLink = async () => {
+    const value = await Clipboard.getStringAsync();
+    if (value) {
+      setUrl(value.trim());
+      setAttempted(false);
+      setError('');
+    }
+  };
+
+  const selectExample = (value: string) => {
+    setUrl(value);
+    setAttempted(false);
+    setError('');
+  };
+
+  return (
+    <SafeAreaView style={s.safe}>
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
+      <View style={s.app}>
+        {desktop && (
+          <View style={s.sidebar}>
+            <View style={s.brand}>
+              <MaterialCommunityIcons name="shield-check" size={39} color={C.blue} />
+              <Text style={s.brandText}>Security <Text style={s.brandAccent}>Scanner</Text></Text>
+            </View>
+            <View style={s.navList}>
+              <Pressable style={s.navItem} onPress={onBackHome}>
+                <Feather name="home" size={21} color="#D4E0F0" /><Text style={s.navText}>Home</Text>
+              </Pressable>
+              <Pressable style={s.navItem}>
+                <Feather name="clock" size={21} color="#D4E0F0" /><Text style={s.navText}>History</Text>
+              </Pressable>
+              <Pressable style={s.navItem}>
+                <Feather name="archive" size={21} color="#D4E0F0" /><Text style={s.navText}>Quarantine</Text>
+                <View style={s.badge}><Text style={s.badgeText}>2</Text></View>
+              </Pressable>
+              <Pressable style={s.navItem}>
+                <Feather name="settings" size={21} color="#D4E0F0" /><Text style={s.navText}>Settings</Text>
+              </Pressable>
+            </View>
+            <View style={s.privacy}>
+              <MaterialCommunityIcons name="shield-check-outline" size={26} color="#75B8FF" />
+              <View style={{ flex: 1 }}>
+                <Text style={s.privacyTitle}>Files stay on your phone by default.</Text>
+                <Text style={s.privacyCopy}>We don't upload your files without your permission.</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        <View style={s.content}>
+          <View style={s.topbar}>
+            {!desktop && <Text style={s.mobileBrand}>Security <Text style={s.brandAccent}>Scanner</Text></Text>}
+            <Feather name="user" size={20} color={C.navy} />
+            <Text style={s.userText}>User</Text>
+            <Feather name="chevron-down" size={16} color="#8CA0BC" />
+          </View>
+
+          <ScrollView contentContainerStyle={[s.page, !desktop && s.pageMobile]} keyboardShouldPersistTaps="handled">
+            <Pressable style={s.back} onPress={onBackHome}>
+              <Feather name="arrow-left" size={19} color={C.blue} />
+              <Text style={s.backText}>Back to Home</Text>
+            </Pressable>
+
+            <View style={s.heading}>
+              <View style={s.headingIcon}><Feather name="link" size={40} color={C.blue} /></View>
+              <View style={s.headingCopy}>
+                <Text style={s.pageTitle}>Check a website link</Text>
+                <Text style={s.subtitle}>Paste a website link to check for known signs of danger.</Text>
+                <Text style={s.subtitle}>This cannot guarantee a website is safe.</Text>
+              </View>
+            </View>
+
+            <View style={s.formCard}>
+              <Text style={s.label}>Website link</Text>
+              <View style={s.inputRow}>
+                <Feather name="link" size={20} color={C.blue} style={s.inputIcon} />
+                <TextInput
+                  value={url}
+                  onChangeText={(value) => {
+                    setUrl(value);
+                    if (attempted) {
+                      setError(isValidUrl(value) ? '' : 'Please enter a valid URL (e.g. https://example.com)');
+                    }
+                  }}
+                  placeholder="Paste a website link (e.g. https://example.com)"
+                  placeholderTextColor="#7188AD"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  returnKeyType="go"
+                  onSubmitEditing={checkLink}
+                  style={s.input}
+                  accessibilityLabel="Website link"
+                />
+                <Pressable style={s.pasteButton} onPress={pasteLink}>
+                  <Feather name="clipboard" size={18} color={C.muted} />
+                  <Text style={s.pasteText}>Paste</Text>
+                </Pressable>
+              </View>
+
+              {!!error && (!url.trim() || attempted) && (
+                <View style={s.errorRow}>
+                  <Feather name="alert-circle" size={15} color={C.red} />
+                  <Text style={s.errorText}>{error}</Text>
+                </View>
+              )}
+
+              <Pressable style={s.checkButton} onPress={checkLink}>
+                <Feather name="search" size={19} color={C.white} />
+                <Text style={s.checkButtonText}>Check link</Text>
+              </Pressable>
+
+              <View style={s.infoBox}>
+                <View style={s.infoCircle}><Feather name="info" size={15} color={C.white} /></View>
+                <Text style={s.infoText}>We check the link for known signs of danger; this cannot guarantee a website is safe.</Text>
+              </View>
+            </View>
+
+            <Text style={s.examplesTitle}>Examples</Text>
+            <View style={s.examples}>
+              {EXAMPLES.map((example) => (
+                <Pressable key={example} onPress={() => selectExample(example)} style={s.exampleChip}>
+                  <Text style={s.exampleText}>{example}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.bg },
+  app: { flex: 1, flexDirection: 'row', backgroundColor: C.bg },
+  sidebar: { width: 280, backgroundColor: C.navy, paddingHorizontal: 16, paddingTop: 15, paddingBottom: 22 },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 8, paddingBottom: 22, borderBottomWidth: 1, borderBottomColor: '#263D58' },
+  brandText: { color: C.white, fontSize: 21, fontWeight: '800' },
+  brandAccent: { color: '#8EC5FF' },
+  navList: { marginTop: 10, gap: 7 },
+  navItem: { minHeight: 45, borderRadius: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  navText: { color: '#F0F5FC', fontSize: 15, flex: 1 },
+  badge: { minWidth: 23, height: 23, borderRadius: 12, backgroundColor: '#FF5559', alignItems: 'center', justifyContent: 'center' },
+  badgeText: { color: C.white, fontSize: 12, fontWeight: '700' },
+  privacy: { marginTop: 'auto', borderTopWidth: 1, borderTopColor: '#314660', paddingTop: 18, flexDirection: 'row', gap: 12 },
+  privacyTitle: { color: C.white, fontSize: 12, lineHeight: 18, fontWeight: '700' },
+  privacyCopy: { color: '#CBD7E8', fontSize: 11, lineHeight: 17, marginTop: 5 },
+  content: { flex: 1, minWidth: 0 },
+  topbar: { height: 62, backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: '#E8EEF6', paddingHorizontal: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 },
+  mobileBrand: { color: C.text, fontSize: 14, fontWeight: '800', marginRight: 'auto' },
+  userText: { color: C.text, fontSize: 14 },
+  page: { paddingHorizontal: 41, paddingTop: 25, paddingBottom: 40, flexGrow: 1 },
+  pageMobile: { paddingHorizontal: 16, paddingTop: 20 },
+  back: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+  backText: { color: C.blue, fontSize: 13 },
+  heading: { flexDirection: 'row', alignItems: 'center', gap: 23, marginTop: 27, marginBottom: 39 },
+  headingIcon: { width: 72, height: 73, borderRadius: 17, backgroundColor: C.paleBlue, alignItems: 'center', justifyContent: 'center' },
+  headingCopy: { flex: 1 },
+  pageTitle: { color: C.text, fontSize: 30, lineHeight: 37, fontWeight: '800', marginBottom: 5 },
+  subtitle: { color: C.muted, fontSize: 16, lineHeight: 24 },
+  formCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 32 },
+  label: { color: C.text, fontSize: 16, fontWeight: '700', marginBottom: 16 },
+  inputRow: { minHeight: 55, flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: '#D6E4F8', borderRadius: 9, overflow: 'hidden', backgroundColor: C.white },
+  inputIcon: { marginLeft: 15, marginRight: 18 },
+  input: { flex: 1, minWidth: 0, color: C.text, fontSize: 15, paddingVertical: 14 },
+  pasteButton: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingHorizontal: 17, borderLeftWidth: 1.5, borderLeftColor: '#D6E4F8' },
+  pasteText: { color: C.blue, fontSize: 13, fontWeight: '600' },
+  errorRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 10 },
+  errorText: { color: C.red, fontSize: 12 },
+  checkButton: { minHeight: 45, borderRadius: 8, backgroundColor: C.blue, marginTop: 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
+  checkButtonText: { color: C.white, fontSize: 14, fontWeight: '600' },
+  infoBox: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 33, paddingHorizontal: 15, paddingVertical: 12, borderWidth: 1, borderColor: '#D8E9FF', borderRadius: 8, backgroundColor: '#F1F7FF' },
+  infoCircle: { width: 21, height: 21, borderRadius: 11, backgroundColor: '#5C91D5', alignItems: 'center', justifyContent: 'center' },
+  infoText: { flex: 1, color: C.muted, fontSize: 13, lineHeight: 20 },
+  examplesTitle: { color: C.text, fontSize: 16, fontWeight: '700', marginTop: 32, marginBottom: 13 },
+  examples: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+  exampleChip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 22, backgroundColor: '#E9F1FC' },
+  exampleText: { color: C.muted, fontSize: 12 },
+});

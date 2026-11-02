@@ -21,6 +21,7 @@ const nextConfig: NextConfig = {
     "react-native-safe-area-context",
     "@expo/vector-icons",
     "expo-document-picker",
+    "expo-clipboard",
     "expo-modules-core",
   ],
 

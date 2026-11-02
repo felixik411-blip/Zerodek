@@ -20,13 +20,21 @@ function DashboardPreviewInner() {
     (event: React.MouseEvent<HTMLDivElement>) => {
       const root = event.currentTarget;
       let node = event.target as HTMLElement | null;
-      let hit = false;
+      let destination: '/file-selection/' | '/website-link/' | null = null;
       while (node && node !== root) {
         const text = (node.innerText || '').replace(/\s+/g, ' ').trim();
-        if (text === 'Scan file') hit = true;
+        // Innermost match wins: the button's own Text node fires before any
+        // outer wrapper can.
+        if (!destination) {
+          if (text === 'Scan file') destination = '/file-selection/';
+          // The "Check a link" card's Check button: hand off to the
+          // dedicated website-link screen (screen 6) instead of the
+          // in-card notice.
+          else if (text === 'Check') destination = '/website-link/';
+        }
         node = node.parentElement;
       }
-      if (hit) router.push('/file-selection/');
+      if (destination) router.push(destination);
     },
     [router],
   );
@@ -66,7 +74,15 @@ function DashboardPreviewInner() {
   }, [ready, view]);
 
   return (
-    <ScreenLoader load={loadScreen} onScreenReady={handleScreenReady} />
+    // The capture-phase bridge must sit ABOVE the rendered screen: without
+    // this wrapper the listener is never attached and the hand-off's
+    // "Scan file" / "Check" buttons do nothing on the web preview.
+    <div
+      onClickCapture={handleBridgeClick}
+      style={{ flex: 1, display: 'flex', minHeight: 0 }}
+    >
+      <ScreenLoader load={loadScreen} onScreenReady={handleScreenReady} />
+    </div>
   );
 }
 
@@ -77,9 +93,10 @@ function DashboardPreviewInner() {
  * The dashboard hand-off is intentionally self-contained (no navigation
  * props), so the flow is bridged at the glue level: a capture-phase DOM
  * listener detects clicks on the element whose text is exactly "Scan file"
- * and routes to the file-selection screen, and a `?view=Quarantine` query
- * param deep-links into the hand-off's internal Quarantine view. The
- * hand-off component itself is not modified.
+ * and routes to the file-selection screen, the "Check a link" card's Check
+ * button routes to the website-link screen (screen 6), and a
+ * `?view=Quarantine` query param deep-links into the hand-off's internal
+ * Quarantine view. The hand-off component itself is not modified.
  *
  * `useSearchParams` needs a Suspense boundary during static prerender.
  */

@@ -1,12 +1,13 @@
-# Security Scanner — Screens 1–5 (Expo + React Native)
+# Security Scanner — Screens 1–6 (Expo + React Native)
 
-The first five screens of the Android security scanner:
+The first six screens of the Android security scanner:
 
 1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
 3. **File-selection screen** — `SecurityScannerFileSelectionScreen.tsx`, byte-identical to the design hand-off (`upload/3.md`). Sample file list with tabs, row selection, "Browse device" via the native document picker, and honest scanner notices.
 4. **Scan-progress screen** — `SecurityScannerScanProgressScreen.tsx`, byte-identical to the design hand-off (`upload/4.md`). Live progress ring + bar demo, honest "this is placeholder UI, not a real scan" messaging, cancel and finish states, and optional `onBackHome` / `onCancel` / `onScanComplete` callbacks for the app shell.
 5. **Scan-result screen** — `SecurityScannerResultScreen.tsx`, byte-identical to the design hand-off (`upload/5.md`). "Threat found" result card, file metadata, quarantine explainer, next steps, and View quarantine / Delete permanently (confirm first) / Scan another actions with optional callbacks.
+6. **Website-link screen** — `WebsiteLinkScreen.tsx`, byte-identical to the design hand-off (`upload/6.md`). URL input with inline validation, Paste from clipboard (`expo-clipboard`), example chips, honest "this cannot guarantee a website is safe" messaging, and `onBackHome` / `onCheckLink` callbacks.
 
 ## Run it
 
@@ -27,9 +28,11 @@ import SecurityScannerFileSelectionScreen from './SecurityScannerFileSelectionSc
 import SecurityScannerScanProgressScreen from './SecurityScannerScanProgressScreen';
 // or
 import SecurityScannerResultScreen from './SecurityScannerResultScreen';
+// or
+import WebsiteLinkScreen from './WebsiteLinkScreen';
 
 export default function App() {
-  return <SecurityScannerResultScreen />;
+  return <WebsiteLinkScreen />;
 }
 ```
 
@@ -45,11 +48,12 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
 | `SecurityScannerFileSelectionScreen.tsx` | Screen 3: file selection (byte-identical to the hand-off) |
 | `SecurityScannerScanProgressScreen.tsx` | Screen 4: scan progress (byte-identical to the hand-off) |
 | `SecurityScannerResultScreen.tsx` | Screen 5: scan result (byte-identical to the hand-off) |
+| `WebsiteLinkScreen.tsx` | Screen 6: website link check (byte-identical to the hand-off) |
 | `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`), imported first in `App.tsx` |
-| `App.tsx` | Renders the welcome screen (swap to preview any of the five screens) |
+| `App.tsx` | Renders the welcome screen (swap to preview any of the six screens) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
-| `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`) |
+| `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker` and `expo-clipboard`) |
 
 ## Dashboard scope
 
@@ -144,6 +148,29 @@ Byte-identical to the hand-off. What it does:
 - **Responsive** — two-column layout (result + side cards) on wide screens;
   stacked single column, stacked action buttons and stacked metadata below
   1000px.
+
+## Website-link screen (screen 6)
+
+Byte-identical to the hand-off. What it does:
+
+- **URL input** — inline validation (HTTP/HTTPS + hostname with a dot), the
+  error shows only once you've attempted a check (or while editing after one),
+  and Enter/submits run the same validation.
+- **Paste** — reads the device clipboard via `expo-clipboard` (already in
+  `package.json`; `npx expo install --fix` will align it). On Android/iOS this
+  is the native clipboard; browsers may show a one-time permission prompt and
+  can deny reads on insecure origins.
+- **Example chips** — fill the input for UI testing; the hand-off notes they
+  are not claims about those websites' safety.
+- **Check link** — calls `onCheckLink(url)` with the validated URL. The
+  hand-off deliberately does NOT decide the result: connect your real URL
+  reputation/scanning service there. In the web preview, a valid check shows
+  an honest "result screen isn't connected yet" notice instead of a fake
+  verdict; an invalid one shows the validation error.
+- **Back to Home** — `onBackHome` callback; the web preview returns to the
+  dashboard, and the dashboard's "Check a link" card routes here.
+- **Responsive** — sidebar on layouts ≥ 900px wide; below that the brand
+  moves into the top bar.
 
 ## Known notes
 
