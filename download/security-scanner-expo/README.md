@@ -1,6 +1,6 @@
-# Security Scanner — Screens 1–10 (Expo + React Native)
+# Security Scanner — Screens 1–13 (Expo + React Native)
 
-The first ten screens of the Android security scanner:
+The first thirteen screens of the Android security scanner:
 
 1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
@@ -67,8 +67,9 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
 | `ScanHistoryScreen.tsx` | Screen 10: scan history (byte-identical to the hand-off) |
 | `SettingsScreen.tsx` | Screen 11: settings (byte-identical to the hand-off) |
 | `HelpAboutScreen.tsx` | Screen 12: help & about (authored to the brief in `12.md`) |
+| `AdminSignInScreen.tsx` | Screen 13: admin sign-in (authored to the brief in `13.md`) |
 | `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`), imported first in `App.tsx` |
-| `App.tsx` | Renders the welcome screen (swap to preview any of the twelve screens) |
+| `App.tsx` | Renders the welcome screen (swap to preview any of the thirteen screens) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
 | `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`, `expo-clipboard`, `lucide-react-native`, `react-native-svg`) |
@@ -351,6 +352,44 @@ the app's shared design system. What it does:
   below that the root switches to a column with a compact top bar, stacked
   footer and 16px gutters. Unlike screen 11, no glue CSS is needed in the
   preview.
+
+## Admin sign-in screen (screen 13)
+
+Authored to the implementation brief (`13.md`) — the brief defines
+requirements, copy and design tokens instead of shipping code, so the screen
+was written to spec. What it does:
+
+- **Two-column desktop layout** — pale-blue Admin Portal panel (46%: brand
+  lockup with tagline, browser-window hero illustration composed from plain
+  Views + lucide icons, "Admin Portal" copy, three feature rows from one
+  typed array) beside a white panel holding the centred sign-in card
+  (~554px, thin pale-blue border, 12px radius). A subtle divider separates
+  the panels.
+- **Form** — email/username and password fields with leading icons, 50px
+  height, 7px radius, muted-blue placeholders; password visibility toggle
+  (eye/eye-off); right-aligned "Forgot your password?" link; full-width
+  "Sign in" button with arrow icon; pale-blue security notice strip with an
+  info icon at the bottom of the card.
+- **Validation & loading** — empty fields show concise inline errors
+  ("Enter your email or username." / "Enter your password.") that clear as
+  you type; the button shows a spinner + "Signing in…" and is disabled
+  (with `busy` accessibility state) while the injected `onSignIn` callback
+  runs; a rejected callback surfaces a concise inline error strip. The
+  screen never fabricates a success state, exactly as the brief demands —
+  reporting success is the real handler's job.
+- **Integration points** — `onSignIn(credentials)` and `onForgotPassword()`
+  are optional props; no credentials are stored and no recovery route is
+  invented. The web preview wires sign-in to an honest "not connected in
+  this preview" rejection (so the loading + error states can be exercised)
+  and forgot-password to the existing Help & About screen (the app's
+  support surface). In your Expo app pass your real handlers.
+- **Dependencies** — `lucide-react-native` only (already in
+  `package.json`); no new dependency and no remote image URL (the hero is a
+  React Native composition of shapes and icons).
+- **Responsive** — two columns at ≥900px; below that the panels stack
+  vertically (intro on the pale background, card section in white) in a
+  single scrollable view with no horizontal overflow. Tap-outside keyboard
+  dismissal is included for mobile.
 
 ## Known notes
 
