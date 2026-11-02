@@ -66,8 +66,9 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
 | `QuarantineDetailsScreen.tsx` | Screen 9: quarantined file details (byte-identical to the hand-off) |
 | `ScanHistoryScreen.tsx` | Screen 10: scan history (byte-identical to the hand-off) |
 | `SettingsScreen.tsx` | Screen 11: settings (byte-identical to the hand-off) |
+| `HelpAboutScreen.tsx` | Screen 12: help & about (authored to the brief in `12.md`) |
 | `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`), imported first in `App.tsx` |
-| `App.tsx` | Renders the welcome screen (swap to preview any of the eleven screens) |
+| `App.tsx` | Renders the welcome screen (swap to preview any of the twelve screens) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
 | `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`, `expo-clipboard`, `lucide-react-native`, `react-native-svg`) |
@@ -320,6 +321,36 @@ Byte-identical to the hand-off. What it does:
   columns. The web preview compensates with glue-only CSS in
   `SettingsPreview.tsx` (stacked top bar and card rows); this package keeps
   the hand-off file byte-identical, so on a device it renders as written.
+
+## Help & About screen (screen 12)
+
+Authored to the implementation brief (`12.md`) — this hand-off defines
+requirements and copy instead of shipping code, so the screen was written to
+the app's shared design system. What it does:
+
+- **Search** — live case-insensitive filter over each topic's title,
+  description and answer text, per the brief. No matches shows the compact
+  empty state ("No help topics found." + a muted hint). It filters only the
+  five local topics; no knowledge base is claimed.
+- **Topics** — the five cards from the brief with their accent tiles (blue
+  shield, green document, orange archive, purple link, teal lock). Tapping a
+  card opens an in-screen detail panel (title + answer, paragraphs and
+  labelled bullets) with a "Back to topics" control.
+- **Sidebar** — Home, History, Quarantine (badge "2"), Settings and
+  Help & About (active). The brief says to accept navigation callbacks as
+  props, so the screen takes `onNavigate(destination)`; the web preview
+  wires it to the dashboard, scan-history, quarantined-files and settings
+  routes. In your Expo app pass your navigator's calls.
+- **Footer card** — two columns split by a thin divider: App version 1.0.0,
+  and "Need more help?" with the support email rendered blue and selectable
+  (styled text, as the brief permits — no mailto navigation).
+- **Dependencies** — `lucide-react-native` only (already in
+  `package.json`); all icon names verified against the installed version,
+  including the `History` and `HelpCircle` export aliases.
+- **Responsive** — authored correctly at both sizes: sidebar at ≥900px, and
+  below that the root switches to a column with a compact top bar, stacked
+  footer and 16px gutters. Unlike screen 11, no glue CSS is needed in the
+  preview.
 
 ## Known notes
 
