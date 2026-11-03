@@ -1,6 +1,6 @@
-# Security Scanner — Screens 1–15 (Expo + React Native)
+# Security Scanner — Screens 1–16 (Expo + React Native)
 
-The first fifteen screens of the Android security scanner:
+The first sixteen screens of the Android security scanner:
 
 1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
@@ -70,8 +70,9 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
 | `AdminSignInScreen.tsx` | Screen 13: admin sign-in (authored to the brief in `13.md`) |
 | `AdminDashboardScreen.tsx` | Screen 14: admin dashboard (byte-identical to the hand-off in `14.md`) |
 | `UserManagementScreen.tsx` | Screen 15: user management (byte-identical to the hand-off in `15.md`) |
+| `ThreatInformationScreen.tsx` | Screen 16: threat information management (byte-identical to the hand-off in `16.md`) |
 | `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`, Feather `shield-check` → `shield`), imported first in `App.tsx` |
-| `App.tsx` | Renders the welcome screen (swap to preview any of the fifteen screens) |
+| `App.tsx` | Renders the welcome screen (swap to preview any of the sixteen screens) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
 | `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`, `expo-clipboard`, `lucide-react-native`, `react-native-svg`) |
@@ -476,6 +477,61 @@ wired:
   row's stacking context so later rows painted over it — while a row menu
   is open, the ancestors between the table card and the dropdown are
   neutralised so the dropdown renders above the rows below it.
+
+## Threat-information screen (screen 16)
+
+Byte-identical to the code hand-off in `16.md`. What it does and how it is
+wired:
+
+- **Desktop-style admin layout** — white top bar (menu, bell with red dot,
+  AD admin account), heading with a shield tile, a filter bar (search,
+  Type + Status dropdowns, "Add Indicator"), an indicators table card
+  (Indicator / Type / Source / Status / Date Added / Last Updated /
+  Actions — 12 sample indicators with type pills and status pills) with a
+  pagination footer (5 per page), an "Add Threat Indicator" form card on
+  the right (value, Type, Source, Status, submit), a Recent Activity card
+  (3 sample rows, "View all activity"), and a System Healthy footer.
+- **Built-in interactions (from the hand-off)** — live search across value,
+  source and type with a "No indicators found" empty state; the Type and
+  Status dropdowns filter the table (and reset to page 1); the add form
+  validates (missing value/type/source, duplicate detection) and prepends
+  the new indicator with today's dates; every row's ⋮ menu cycles the
+  status (Active → Pending → Blocked, stamping Last Updated), opens a
+  details dialog, or removes the row behind a "Remove indicator?"
+  confirmation; the table paginates with prev/next and page-number
+  buttons and a live "Showing x–y of z" counter. Notifications, the admin
+  account, the filter bar's "Add Indicator" placeholder and "View all
+  activity" show honest alerts instead of fake screens.
+- **Icon glyphs** — all 23 Ionicons names used by this hand-off exist in
+  the installed glyphmap (verified programmatically), so no
+  `glyphPatches.ts` alias is needed for this screen.
+- **Wired to the real app (glue, not in the hand-off)** — the web preview
+  wraps the screen in a click-capture bridge: the top-bar menu button —
+  the hand-off's own "Connect your admin drawer here." integration point —
+  routes to the admin dashboard screen (14), and the filter bar's "Add
+  Indicator" button scrolls to and focuses the form's Indicator Value
+  input instead of dead-ending in an alert (the form's own submit button,
+  which reads the same, is told apart by document order and passes
+  through). The hand-off's alert still fires for the menu button, as with
+  screens 14/15 (capture-phase bridge, bubble-phase notice). Everything
+  else stays inside the screen.
+- **Responsive** — the table's columns are fixed-width (824px total) and
+  scroll horizontally inside the card, per the hand-off; its own notes
+  recommend stacking the table and form for narrow phones.
+- **Web-preview glue (hand-off untouched)** — react-native-web gives every
+  View a default `z-index: 0` stacking context, which (a) let later rows
+  paint over an open row ⋮ menu, (b) let the Recent Activity card paint
+  over menus spilling past their card's bottom edge (raising the cards
+  alone cannot fix this — their z-index is trapped inside `mainRow`'s
+  context, so `mainRow` itself is raised while a menu is open), (c) let
+  later add-form picker wraps paint over an open options menu, and (d)
+  computed the table's horizontal ScrollView `overflow-y: hidden`, which
+  clipped a bottom row's menu at the card's edge — released at ≥1240px
+  viewports, where the table never needs the horizontal scroll (below
+  that it clips exactly as it does inside a native horizontal ScrollView).
+  One more rule re-raises the filter bar above the raised `mainRow` while
+  its own dropdown is open, preserving the hand-off's native stacking when
+  two menus are open at once.
 
 ## Known notes
 
