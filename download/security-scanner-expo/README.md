@@ -1,6 +1,6 @@
-# Security Scanner — Screens 1–14 (Expo + React Native)
+# Security Scanner — Screens 1–15 (Expo + React Native)
 
-The first fourteen screens of the Android security scanner:
+The first fifteen screens of the Android security scanner:
 
 1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
@@ -69,8 +69,9 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
 | `HelpAboutScreen.tsx` | Screen 12: help & about (authored to the brief in `12.md`) |
 | `AdminSignInScreen.tsx` | Screen 13: admin sign-in (authored to the brief in `13.md`) |
 | `AdminDashboardScreen.tsx` | Screen 14: admin dashboard (byte-identical to the hand-off in `14.md`) |
+| `UserManagementScreen.tsx` | Screen 15: user management (byte-identical to the hand-off in `15.md`) |
 | `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`, Feather `shield-check` → `shield`), imported first in `App.tsx` |
-| `App.tsx` | Renders the welcome screen (swap to preview any of the fourteen screens) |
+| `App.tsx` | Renders the welcome screen (swap to preview any of the fifteen screens) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
 | `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`, `expo-clipboard`, `lucide-react-native`, `react-native-svg`) |
@@ -427,6 +428,54 @@ wired:
   activity table cannot shrink below its `numberOfLines={1}` contents, so
   on a 390px viewport the Result column was silently clipped — the panel
   now scrolls sideways instead, keeping every column reachable.
+
+## User-management screen (screen 15)
+
+Byte-identical to the code hand-off in `15.md`. What it does and how it is
+wired:
+
+- **Desktop layout (≥900px)** — navy sidebar (brand, six nav items, System
+  Healthy footer), white top bar (menu, bell with red dot, AD admin
+  account), and a user-management page: heading with a people icon tile, a
+  dismissable notice strip, a toolbar (search, status filter, Export), the
+  users table (User / Status / Role / Joined On / Last Active / Actions,
+  5 sample users with status + role pills), pagination footer, and an
+  Audit Trail card (3 sample rows, "View all logs").
+- **Built-in interactions (from the hand-off)** — live search across name,
+  email and role with a "No users found" empty state; the status filter
+  dropdown (All Statuses / Active / Disabled) filters the table; View
+  opens a detail dialog (avatar, email, status/role/joined/last-active
+  rows); the row ⋯ menu offers View details plus Disable account (red) or
+  Re-enable account (green) guarded by a confirmation dialog; disabling
+  and re-enabling actually flip the user's status pill in the table and
+  fire a dismissable notice; Export CSV/JSON and every nav-without-a-route
+  control show honest inline notices (the integration notes leave export
+  as a connect-later point — no export service is faked).
+- **Wired to the real app (glue, not in the hand-off)** — the web preview
+  wraps the screen in a click-capture bridge: sidebar Dashboard / Scans /
+  Quarantine / Settings / Help & Support route to the real dashboard,
+  scan-history, quarantine, settings and help-about screens (matched by
+  suffix against the sidebar's navy background, as in screen 14). "Users"
+  is this screen itself, so it keeps the hand-off's honest notice.
+- **Icon glyphs** — all 20 Ionicons names and the MaterialCommunityIcons
+  `shield-check` used by this hand-off exist in the installed glyphmaps
+  (verified programmatically), so no `glyphPatches.ts` alias is needed for
+  this screen.
+- **Responsive** — below 900px the hand-off's own `compact` mode collapses
+  the sidebar to a 70px icon rail, stacks the toolbar, and keeps the tables
+  at their 930/900px minimums inside horizontal ScrollViews, per the
+  integration notes. The detail and confirmation dialogs fit a 390px
+  viewport with 20px margins.
+- **Web-preview glue (hand-off untouched)** — two rules in the preview
+  wrapper only: (1) on desktop the tables' `width: "100%"` resolves
+  against the horizontal ScrollView's shrink-wrapped content container, so
+  the content container is stretched to the card's real width (the
+  hand-off's `compact` breakpoint is respected below 900px); (2)
+  react-native-web gives every relatively-positioned view a default
+  z-index 0, which trapped the row dropdown (z-index 30) inside its own
+  row's stacking context so later rows painted over it — while a row menu
+  is open, the ancestors between the table card and the dropdown are
+  neutralised so the dropdown renders above the rows below it.
 
 ## Known notes
 

@@ -1,0 +1,376 @@
+import React, { useMemo, useState } from "react";
+import {
+  SafeAreaView, ScrollView, View, Text, TextInput, Pressable,
+  Modal, StatusBar, StyleSheet, useWindowDimensions,
+} from "react-native";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+
+type Status = "Active" | "Disabled";
+type UserRole = "User" | "Admin";
+type User = {
+  id: string; initials: string; name: string; email: string;
+  status: Status; role: UserRole; joined: string; lastActive: string;
+};
+
+const INITIAL_USERS: User[] = [
+  { id: "1", initials: "JD", name: "Jane Doe", email: "jane.doe@example.com", status: "Active", role: "User", joined: "Oct 28, 2025", lastActive: "2h ago" },
+  { id: "2", initials: "MK", name: "Michael Kimani", email: "michael.kimani@example.com", status: "Active", role: "Admin", joined: "Oct 25, 2025", lastActive: "1d ago" },
+  { id: "3", initials: "AS", name: "Aisha Bello", email: "aisha.bello@example.com", status: "Disabled", role: "User", joined: "Oct 20, 2025", lastActive: "3d ago" },
+  { id: "4", initials: "TW", name: "Tunde Williams", email: "tunde.williams@example.com", status: "Active", role: "User", joined: "Oct 18, 2025", lastActive: "1d ago" },
+  { id: "5", initials: "OK", name: "Okafor Chinedu", email: "okafor.chinedu@example.com", status: "Active", role: "User", joined: "Oct 15, 2025", lastActive: "4h ago" },
+];
+
+const AUDIT = [
+  { date: "Oct 29, 2025 – 10:24 AM", action: "Disabled account", target: "Michael Kimani", details: "Account disabled for policy violation." },
+  { date: "Oct 27, 2025 – 02:17 PM", action: "Viewed user", target: "Jane Doe", details: "Viewed account details." },
+  { date: "Oct 25, 2025 – 11:30 AM", action: "Granted admin role", target: "Aisha Bello", details: "Role updated to Admin." },
+];
+
+const C = {
+  navy: "#0B2145", blue: "#0875F9", muted: "#5874A8",
+  border: "#D9E7FF", pale: "#F2F7FF", green: "#0A9C65", red: "#E52E35",
+};
+
+export default function UserManagementScreen() {
+  const { width } = useWindowDimensions();
+  const compact = width < 900;
+  const [users, setUsers] = useState(INITIAL_USERS);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"All Statuses" | Status>("All Statuses");
+  const [statusMenu, setStatusMenu] = useState(false);
+  const [exportMenu, setExportMenu] = useState(false);
+  const [rowMenu, setRowMenu] = useState<string | null>(null);
+  const [selected, setSelected] = useState<User | null>(null);
+  const [confirm, setConfirm] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  const visibleUsers = useMemo(() => users.filter((u) => {
+    const q = query.trim().toLowerCase();
+    const matches = !q || [u.name, u.email, u.role].some((v) => v.toLowerCase().includes(q));
+    return matches && (filter === "All Statuses" || u.status === filter);
+  }), [users, query, filter]);
+
+  const changeStatus = () => {
+    if (!selected) return;
+    const next: Status = selected.status === "Active" ? "Disabled" : "Active";
+    setUsers((all) => all.map((u) => u.id === selected.id ? { ...u, status: next } : u));
+    setNotice(`${selected.name}'s account is now ${next.toLowerCase()} in this demo.`);
+    setConfirm(false);
+    setSelected(null);
+  };
+
+  const navItems = [
+    { title: "Dashboard", icon: "home" as const },
+    { title: "Scans", icon: "search" as const },
+    { title: "Quarantine", icon: "file-tray-full" as const },
+    { title: "Users", icon: "person" as const },
+    { title: "Settings", icon: "settings" as const },
+    { title: "Help & Support", icon: "help-circle" as const },
+  ];
+
+  return (
+    <SafeAreaView style={s.safe}>
+      <StatusBar barStyle="light-content" backgroundColor="#0D1D31" />
+      <View style={s.app}>
+        <View style={[s.sidebar, compact && s.sidebarCompact]}>
+          <View style={s.brand}>
+            <View style={s.brandIcon}><MaterialCommunityIcons name="shield-check" size={29} color="#fff" /></View>
+            {!compact && <Text style={s.brandText}>Security <Text style={{ color: "#48B9FF" }}>Scanner</Text></Text>}
+          </View>
+          <View style={s.navList}>
+            {navItems.map((item) => (
+              <Pressable key={item.title} style={[s.navItem, item.title === "Users" && s.navActive]}
+                onPress={() => setNotice(`${item.title} navigation selected.`)}>
+                <Ionicons name={item.icon} size={23} color="#fff" />
+                {!compact && <Text style={s.navText}>{item.title}</Text>}
+              </Pressable>
+            ))}
+          </View>
+          {!compact && <View style={s.sidebarFooter}>
+            <MaterialCommunityIcons name="shield-check" size={28} color="#54B9FF" />
+            <View style={{ flex: 1 }}>
+              <Text style={s.footerTitle}>System Healthy</Text>
+              <Text style={s.footerCopy}>All services running</Text>
+            </View>
+            <Text style={s.version}>Security Scanner v1.0.0</Text>
+          </View>}
+        </View>
+
+        <View style={s.main}>
+          <View style={s.topbar}>
+            <Pressable onPress={() => setNotice("Navigation menu selected.")}><Ionicons name="menu" size={26} color="#456CA9" /></Pressable>
+            <View style={s.topRight}>
+              <Pressable style={{ padding: 8 }} onPress={() => setNotice("No new notifications in this demo.")}>
+                <Ionicons name="notifications-outline" size={23} color="#456CA9" /><View style={s.redDot} />
+              </Pressable>
+              <View style={s.adminAvatar}><Text style={s.adminInitials}>AD</Text></View>
+              <Text style={s.adminLabel}>Admin</Text><Ionicons name="chevron-down" size={15} color={C.muted} />
+            </View>
+          </View>
+
+          <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+            <View style={s.pageHeading}>
+              <View style={s.headingIcon}><Ionicons name="people" size={39} color={C.blue} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.pageTitle}>User Management</Text>
+                <Text style={s.subtitle}>View and manage user accounts and access permissions.</Text>
+              </View>
+            </View>
+
+            {!!notice && <Pressable style={s.notice} onPress={() => setNotice("")}>
+              <Ionicons name="information-circle" size={19} color={C.blue} />
+              <Text style={s.noticeText}>{notice} · Tap to dismiss</Text>
+            </Pressable>}
+
+            <View style={[s.toolbar, compact && { flexDirection: "column", alignItems: "stretch" }]}>
+              <View style={s.searchBox}>
+                <Ionicons name="search" size={21} color="#6682B4" />
+                <TextInput value={query} onChangeText={setQuery}
+                  placeholder="Search users by email, username or role..."
+                  placeholderTextColor="#8196BC" style={s.searchInput} />
+              </View>
+              <View style={s.toolbarActions}>
+                <View style={s.anchor}>
+                  <Pressable style={s.filterButton} onPress={() => { setStatusMenu(!statusMenu); setExportMenu(false); }}>
+                    <Text style={s.filterText}>{filter}</Text><Ionicons name="chevron-down" size={17} color={C.muted} />
+                  </Pressable>
+                  {statusMenu && <View style={s.dropdown}>
+                    {(["All Statuses", "Active", "Disabled"] as const).map((v) => <Pressable key={v} style={s.dropdownItem}
+                      onPress={() => { setFilter(v); setStatusMenu(false); }}><Text style={s.dropdownText}>{v}</Text></Pressable>)}
+                  </View>}
+                </View>
+                <View style={s.anchor}>
+                  <Pressable style={s.exportButton} onPress={() => { setExportMenu(!exportMenu); setStatusMenu(false); }}>
+                    <Text style={s.exportText}>Export</Text><Ionicons name="chevron-down" size={17} color="#fff" />
+                  </Pressable>
+                  {exportMenu && <View style={[s.dropdown, { right: 0, left: "auto" }]}>
+                    {["CSV", "JSON"].map((v) => <Pressable key={v} style={s.dropdownItem} onPress={() => {
+                      setExportMenu(false); setNotice(`${v} export selected. Connect this to your export service.`);
+                    }}><Text style={s.dropdownText}>Export {v}</Text></Pressable>)}
+                  </View>}
+                </View>
+              </View>
+            </View>
+
+            <View style={s.tableCard}>
+              <ScrollView horizontal showsHorizontalScrollIndicator>
+                <View style={{ minWidth: compact ? 930 : 0, width: compact ? undefined : "100%" }}>
+                  <View style={s.tableHeader}>
+                    <Text style={[s.headerCell, { flex: 2.3 }]}>User</Text>
+                    <Text style={[s.headerCell, { flex: 1.15 }]}>Status</Text>
+                    <Text style={[s.headerCell, { flex: 1.3 }]}>Role</Text>
+                    <Text style={[s.headerCell, { flex: 1.25 }]}>Joined On</Text>
+                    <Text style={[s.headerCell, { flex: 1.1 }]}>Last Active</Text>
+                    <Text style={[s.headerCell, { flex: 1.05, textAlign: "center" }]}>Actions</Text>
+                  </View>
+                  {visibleUsers.map((u) => <View key={u.id} style={s.userRow}>
+                    <View style={[s.userCell, { flex: 2.3 }]}>
+                      <View style={s.userAvatar}><Text style={s.initials}>{u.initials}</Text></View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.userName}>{u.name}</Text><Text style={s.email}>{u.email}</Text>
+                      </View>
+                    </View>
+                    <View style={[s.dataCell, { flex: 1.15 }]}>
+                      <View style={[s.statusPill, { backgroundColor: u.status === "Active" ? "#E5F8F1" : "#FDEBEC" }]}>
+                        <View style={[s.statusDot, { backgroundColor: u.status === "Active" ? C.green : C.red }]} />
+                        <Text style={{ color: u.status === "Active" ? "#078751" : "#D92129", fontSize: 13 }}>{u.status}</Text>
+                      </View>
+                    </View>
+                    <View style={[s.dataCell, { flex: 1.3 }]}><View style={s.rolePill}><Text style={s.roleText}>{u.role}</Text></View></View>
+                    <Text style={[s.dataText, { flex: 1.25 }]}>{u.joined}</Text>
+                    <Text style={[s.dataText, { flex: 1.1 }]}>{u.lastActive}</Text>
+                    <View style={[s.actionCell, { flex: 1.05 }]}>
+                      <Pressable style={s.viewButton} onPress={() => { setSelected(u); setRowMenu(null); }}>
+                        <Ionicons name="eye-outline" size={18} color={C.blue} /><Text style={s.viewText}>View</Text>
+                      </Pressable>
+                      <Pressable style={s.moreButton} onPress={() => setRowMenu(rowMenu === u.id ? null : u.id)}>
+                        <Ionicons name="ellipsis-vertical" size={18} color={C.blue} />
+                      </Pressable>
+                      {rowMenu === u.id && <View style={s.rowDropdown}>
+                        <Pressable style={s.dropdownItem} onPress={() => { setSelected(u); setRowMenu(null); }}><Text style={s.dropdownText}>View details</Text></Pressable>
+                        <Pressable style={s.dropdownItem} onPress={() => { setSelected(u); setConfirm(true); setRowMenu(null); }}>
+                          <Text style={[s.dropdownText, { color: u.status === "Active" ? C.red : C.green }]}>{u.status === "Active" ? "Disable account" : "Re-enable account"}</Text>
+                        </Pressable>
+                      </View>}
+                    </View>
+                  </View>)}
+                  {visibleUsers.length === 0 && <View style={s.empty}>
+                    <Ionicons name="search-outline" size={30} color="#7892BD" />
+                    <Text style={s.emptyTitle}>No users found</Text><Text style={s.email}>Try another search or status filter.</Text>
+                  </View>}
+                  <View style={s.tableFooter}>
+                    <Text style={s.count}>Showing {visibleUsers.length ? 1 : 0}–{visibleUsers.length} of {visibleUsers.length} users</Text>
+                    <View style={s.pagination}>
+                      <View style={s.pageArrow}><Ionicons name="chevron-back" size={16} color="#7E9AC6" /></View>
+                      <View style={s.currentPage}><Text style={{ color: "#fff", fontWeight: "700" }}>1</Text></View>
+                      <View style={s.pageArrow}><Ionicons name="chevron-forward" size={16} color="#7E9AC6" /></View>
+                    </View>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+
+            <View style={s.auditCard}>
+              <View style={s.auditHeading}>
+                <View style={s.auditIcon}><Ionicons name="time-outline" size={25} color={C.blue} /></View>
+                <View style={{ flex: 1 }}><Text style={s.auditTitle}>Audit Trail</Text><Text style={s.auditSubtitle}>Recent user management actions.</Text></View>
+                <Pressable style={s.viewAll} onPress={() => setNotice("Full audit log navigation selected.")}>
+                  <Text style={s.viewAllText}>View all logs</Text><Ionicons name="arrow-forward" size={16} color={C.blue} />
+                </Pressable>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator>
+                <View style={{ minWidth: compact ? 900 : 0, width: compact ? undefined : "100%" }}>
+                  <View style={s.auditHeader}>
+                    {["Date & Time", "Admin", "Action", "Target User", "Details"].map((v) => <Text key={v} style={s.auditHeaderText}>{v}</Text>)}
+                  </View>
+                  {AUDIT.map((row) => <View key={row.date} style={s.auditRow}>
+                    <Text style={[s.auditCell, { flex: 1.6 }]}>{row.date}</Text>
+                    <View style={[s.auditCell, { flex: .75, flexDirection: "row", alignItems: "center", gap: 5 }]}>
+                      <Ionicons name="person" size={13} color={C.green} /><Text style={{ color: "#078751", fontSize: 12 }}>Admin</Text>
+                    </View>
+                    <View style={[s.auditCell, { flex: 1.5, flexDirection: "row", alignItems: "center", gap: 7 }]}>
+                      <MaterialCommunityIcons name="shield-check" size={22} color="#119C66" /><Text style={s.auditBody}>{row.action}</Text>
+                    </View>
+                    <Text style={[s.auditCell, { flex: 1.1, color: C.blue }]}>{row.target}</Text>
+                    <Text style={[s.auditCell, { flex: 2.1 }]}>{row.details}</Text>
+                  </View>)}
+                </View>
+              </ScrollView>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+
+      <Modal visible={!!selected && !confirm} transparent animationType="fade" onRequestClose={() => setSelected(null)}>
+        <View style={s.backdrop}><View style={s.detailsModal}>
+          <Pressable style={s.close} onPress={() => setSelected(null)}><Ionicons name="close" size={22} color={C.muted} /></Pressable>
+          <View style={s.modalAvatar}><Text style={s.initials}>{selected?.initials}</Text></View>
+          <Text style={s.modalTitle}>{selected?.name}</Text><Text style={s.email}>{selected?.email}</Text>
+          {[["Status", selected?.status], ["Role", selected?.role], ["Joined on", selected?.joined], ["Last active", selected?.lastActive]].map(([label, value]) =>
+            <View key={label} style={s.infoRow}><Text style={s.infoLabel}>{label}</Text><Text style={s.infoValue}>{value}</Text></View>)}
+          <Pressable style={s.cancelButton} onPress={() => setSelected(null)}><Text style={s.cancelText}>Close</Text></Pressable>
+        </View></View>
+      </Modal>
+
+      <Modal visible={confirm && !!selected} transparent animationType="fade" onRequestClose={() => setConfirm(false)}>
+        <View style={s.backdrop}><View style={s.confirmModal}>
+          <Pressable style={s.close} onPress={() => setConfirm(false)}><Ionicons name="close" size={21} color={C.muted} /></Pressable>
+          <View style={s.confirmTop}>
+            <View style={s.warning}><Ionicons name="warning" size={29} color="#fff" /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.confirmTitle}>{selected?.status === "Active" ? "Disable this account?" : "Re-enable this account?"}</Text>
+              <Text style={s.confirmCopy}>{selected?.status === "Active"
+                ? "This action will prevent the user from signing in until it is re-enabled."
+                : "This will allow the user to sign in again."}</Text>
+            </View>
+          </View>
+          <View style={s.confirmActions}>
+            <Pressable style={s.cancelButton} onPress={() => setConfirm(false)}><Text style={s.cancelText}>Cancel</Text></Pressable>
+            <Pressable style={s.dangerButton} onPress={changeStatus}><Text style={s.dangerText}>{selected?.status === "Active" ? "Disable Account" : "Re-enable Account"}</Text></Pressable>
+          </View>
+        </View></View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#F3F8FF" },
+  app: { flex: 1, flexDirection: "row", backgroundColor: "#F4F9FF" },
+  sidebar: { width: 272, backgroundColor: "#0D1D31", paddingTop: 8, paddingHorizontal: 13 },
+  sidebarCompact: { width: 70, paddingHorizontal: 8 },
+  brand: { height: 68, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#203750" },
+  brandIcon: { width: 38, height: 42, borderRadius: 13, backgroundColor: C.blue, alignItems: "center", justifyContent: "center" },
+  brandText: { color: "#fff", fontSize: 20, fontWeight: "800" },
+  navList: { paddingTop: 22, gap: 8 },
+  navItem: { height: 46, borderRadius: 8, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 16 },
+  navActive: { backgroundColor: "#164B91" },
+  navText: { color: "#fff", fontSize: 14, fontWeight: "500" },
+  sidebarFooter: { marginTop: "auto", marginBottom: 22, borderTopWidth: 1, borderTopColor: "#203750", paddingTop: 20, flexDirection: "row", flexWrap: "wrap", gap: 10, alignItems: "center" },
+  footerTitle: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  footerCopy: { color: "#A9C6E8", fontSize: 12, marginTop: 5 },
+  version: { width: "100%", color: "#A9C6E8", fontSize: 12, textAlign: "center", marginTop: 10 },
+  main: { flex: 1, minWidth: 0 },
+  topbar: { height: 64, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#E4EDFC", paddingHorizontal: 22, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  topRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  redDot: { position: "absolute", width: 8, height: 8, borderRadius: 4, right: 7, top: 6, backgroundColor: "#F04444" },
+  adminAvatar: { width: 37, height: 37, borderRadius: 20, backgroundColor: C.navy, alignItems: "center", justifyContent: "center", marginLeft: 8 },
+  adminInitials: { color: "#fff", fontSize: 12, fontWeight: "700" },
+  adminLabel: { color: C.navy, fontSize: 14, fontWeight: "600" },
+  content: { padding: 28, gap: 20, paddingBottom: 40 },
+  pageHeading: { flexDirection: "row", alignItems: "center", gap: 24 },
+  headingIcon: { width: 78, height: 78, borderRadius: 20, backgroundColor: "#DFEDFF", alignItems: "center", justifyContent: "center" },
+  pageTitle: { color: C.navy, fontSize: 32, lineHeight: 39, fontWeight: "800", letterSpacing: -.5 },
+  subtitle: { color: C.muted, fontSize: 16, marginTop: 4 },
+  notice: { backgroundColor: "#EAF4FF", borderColor: C.border, borderWidth: 1, borderRadius: 9, padding: 12, flexDirection: "row", gap: 8, alignItems: "center" },
+  noticeText: { color: "#2D5FAD", fontSize: 13, flex: 1 },
+  toolbar: { backgroundColor: "#fff", borderWidth: 1, borderColor: C.border, borderRadius: 9, padding: 12, flexDirection: "row", alignItems: "center", gap: 14 },
+  searchBox: { flex: 1, minHeight: 44, borderWidth: 1, borderColor: "#CFE0FF", borderRadius: 8, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 10 },
+  searchInput: { flex: 1, color: C.navy, fontSize: 15, paddingVertical: 9 },
+  toolbarActions: { flexDirection: "row", alignItems: "center", gap: 12, justifyContent: "flex-end" },
+  anchor: { position: "relative", zIndex: 5 },
+  filterButton: { minWidth: 160, height: 44, borderWidth: 1, borderColor: "#CFE0FF", borderRadius: 8, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  filterText: { color: C.navy, fontSize: 14 },
+  exportButton: { height: 44, minWidth: 112, backgroundColor: "#0868F7", borderRadius: 8, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  exportText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  dropdown: { position: "absolute", top: 48, left: 0, minWidth: 150, backgroundColor: "#fff", borderWidth: 1, borderColor: C.border, borderRadius: 9, paddingVertical: 5, zIndex: 20, elevation: 8 },
+  dropdownItem: { paddingHorizontal: 13, paddingVertical: 10 },
+  dropdownText: { color: C.navy, fontSize: 13 },
+  tableCard: { backgroundColor: "#fff", borderWidth: 1, borderColor: C.border, borderRadius: 9, overflow: "visible" },
+  tableHeader: { flexDirection: "row", minHeight: 46, backgroundColor: C.pale, borderBottomWidth: 1, borderBottomColor: C.border, alignItems: "center", paddingHorizontal: 16 },
+  headerCell: { color: C.navy, fontSize: 13, fontWeight: "700" },
+  userRow: { flexDirection: "row", minHeight: 67, borderBottomWidth: 1, borderBottomColor: "#E4EDFA", alignItems: "center", paddingHorizontal: 15 },
+  userCell: { flexDirection: "row", alignItems: "center", gap: 13, paddingRight: 12 },
+  userAvatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#DCEBFF", alignItems: "center", justifyContent: "center" },
+  initials: { color: "#0769F7", fontSize: 20, fontWeight: "800" },
+  userName: { color: C.navy, fontSize: 13, fontWeight: "700" },
+  email: { color: C.muted, fontSize: 12, marginTop: 4 },
+  dataCell: { justifyContent: "center", paddingRight: 8 },
+  dataText: { color: C.navy, fontSize: 13, paddingRight: 8 },
+  statusPill: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 8, borderRadius: 18, paddingHorizontal: 10, paddingVertical: 5 },
+  statusDot: { width: 11, height: 11, borderRadius: 6 },
+  rolePill: { backgroundColor: "#DFECFF", borderRadius: 15, paddingHorizontal: 11, paddingVertical: 5, alignSelf: "flex-start" },
+  roleText: { color: "#0758D4", fontSize: 13 },
+  actionCell: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, position: "relative" },
+  viewButton: { height: 36, borderWidth: 1, borderColor: "#C5DAFF", borderRadius: 7, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: 10 },
+  viewText: { color: C.blue, fontSize: 13, fontWeight: "600" },
+  moreButton: { width: 36, height: 36, borderWidth: 1, borderColor: "#C5DAFF", borderRadius: 7, alignItems: "center", justifyContent: "center" },
+  rowDropdown: { position: "absolute", top: 38, right: 0, width: 160, backgroundColor: "#fff", borderWidth: 1, borderColor: C.border, borderRadius: 8, zIndex: 30, elevation: 8 },
+  tableFooter: { minHeight: 54, paddingHorizontal: 16, backgroundColor: "#F7FAFF", flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  count: { color: "#193D7B", fontSize: 14 },
+  pagination: { flexDirection: "row", alignItems: "center", gap: 7 },
+  pageArrow: { width: 30, height: 30, borderWidth: 1, borderColor: C.border, borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
+  currentPage: { width: 30, height: 30, borderRadius: 6, backgroundColor: "#0868F7", alignItems: "center", justifyContent: "center" },
+  empty: { minHeight: 150, alignItems: "center", justifyContent: "center", gap: 6 },
+  emptyTitle: { color: C.navy, fontSize: 16, fontWeight: "700" },
+  auditCard: { backgroundColor: "#fff", borderWidth: 1, borderColor: C.border, borderRadius: 9, padding: 12 },
+  auditHeading: { flexDirection: "row", alignItems: "center", gap: 13, paddingHorizontal: 4, paddingBottom: 10 },
+  auditIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: "#E6F1FF", alignItems: "center", justifyContent: "center" },
+  auditTitle: { color: C.navy, fontSize: 18, fontWeight: "800" },
+  auditSubtitle: { color: C.muted, fontSize: 13, marginTop: 3 },
+  viewAll: { flexDirection: "row", alignItems: "center", gap: 5 },
+  viewAllText: { color: C.blue, fontSize: 13, fontWeight: "600" },
+  auditHeader: { minHeight: 39, backgroundColor: C.pale, flexDirection: "row", alignItems: "center", paddingHorizontal: 14 },
+  auditHeaderText: { flex: 1, color: C.navy, fontSize: 12, fontWeight: "700" },
+  auditRow: { minHeight: 38, borderBottomWidth: 1, borderBottomColor: "#E4EDFA", flexDirection: "row", alignItems: "center", paddingHorizontal: 14 },
+  auditCell: { flex: 1, color: C.navy, fontSize: 12, paddingRight: 8 },
+  auditBody: { color: C.navy, fontSize: 12 },
+  backdrop: { flex: 1, backgroundColor: "rgba(9,26,49,.30)", alignItems: "center", justifyContent: "center", padding: 20 },
+  detailsModal: { width: "100%", maxWidth: 440, borderRadius: 15, borderWidth: 1, borderColor: C.border, backgroundColor: "#fff", padding: 25, alignItems: "center", elevation: 10 },
+  close: { position: "absolute", right: 12, top: 12, padding: 4, zIndex: 1 },
+  modalAvatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: "#DCEBFF", alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  modalTitle: { color: C.navy, fontSize: 20, fontWeight: "800" },
+  infoRow: { width: "100%", paddingVertical: 10, borderTopWidth: 1, borderTopColor: "#E8EFFA", flexDirection: "row", justifyContent: "space-between" },
+  infoLabel: { color: C.muted, fontSize: 13 },
+  infoValue: { color: C.navy, fontSize: 13, fontWeight: "600" },
+  cancelButton: { minWidth: 100, height: 39, borderWidth: 1, borderColor: "#D1E0FA", borderRadius: 7, alignItems: "center", justifyContent: "center", paddingHorizontal: 12, marginTop: 16 },
+  cancelText: { color: C.navy, fontWeight: "600" },
+  confirmModal: { width: "100%", maxWidth: 425, backgroundColor: "#fff", borderWidth: 1, borderColor: "#D9E5F8", borderRadius: 15, padding: 22, paddingTop: 24, elevation: 12 },
+  confirmTop: { flexDirection: "row", alignItems: "flex-start", gap: 15, paddingRight: 10 },
+  warning: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#F97316", alignItems: "center", justifyContent: "center" },
+  confirmTitle: { color: C.navy, fontSize: 19, fontWeight: "800", marginTop: 4 },
+  confirmCopy: { color: C.navy, fontSize: 13, lineHeight: 21, marginTop: 7 },
+  confirmActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 20 },
+  dangerButton: { minWidth: 145, height: 39, backgroundColor: "#E52E2E", borderRadius: 7, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+  dangerText: { color: "#fff", fontSize: 13, fontWeight: "600" },
+});
