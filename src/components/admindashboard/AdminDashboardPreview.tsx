@@ -32,12 +32,12 @@ const loadScreen = () => import('./AdminDashboardScreen');
  * wraps the screen in a click-capture bridge:
  *
  * - Sidebar items route to the real screens (Dashboard, Scans, Quarantine,
- *   Settings, Help & Support) by suffix match — the Feather icon glyph
- *   prefixes each item's innerText. "Users" has no route in the app yet, so
- *   it keeps the hand-off's honest inline notice. Sidebar clicks are told
- *   apart from same-text page content (e.g. the "Dashboard" page title) by
- *   checking for the sidebar's navy background colour (#10243B) among the
- *   click target's ancestors.
+ *   Users, Settings, Help & Support) by suffix match — the Feather icon
+ *   glyph prefixes each item's innerText. "Users" routes to the
+ *   user-management screen (upload/15.md, served at /user-management/).
+ *   Sidebar clicks are told apart from same-text page content (e.g. the
+ *   "Dashboard" page title) by checking for the sidebar's navy background
+ *   colour (#10243B) among the click target's ancestors.
  * - Activity rows route to the scan history screen, matched either by the
  *   exact item name or by a row-level node whose text starts with the
  *   "Mon DD, YYYY" date and contains an item name (covers clicks on the row
@@ -95,12 +95,14 @@ function AdminDashboardPreviewInner() {
         if (insideSidebar) {
           // The Feather icon glyph prefixes the nav item's innerText (e.g.
           // `" Quarantine`), so match by suffix. The length guard keeps the
-          // walk-up from matching these suffixes against the whole nav list
-          // ("Users" deliberately stays unbridged — no users screen exists).
+          // walk-up from matching these suffixes against the whole nav list.
+          // "Users" routes to the user-management screen (/user-management/,
+          // hand-off upload/15.md) that this sidebar was pointing at.
           if (text.length < 60) {
             if (text.endsWith('Dashboard')) destination = '/dashboard/';
             else if (text.endsWith('Scans')) destination = '/scan-history/';
             else if (text.endsWith('Quarantine')) destination = '/quarantine/';
+            else if (text.endsWith('Users')) destination = '/user-management/';
             else if (text.endsWith('Settings')) destination = '/settings/';
             else if (text.endsWith('Help & Support')) destination = '/help-about/';
           }
