@@ -1,6 +1,6 @@
-# Security Scanner — Screens 1–16 (Expo + React Native)
+# Security Scanner — Screens 1–17 (Expo + React Native)
 
-The first sixteen screens of the Android security scanner:
+The first seventeen screens of the Android security scanner:
 
 1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
@@ -71,8 +71,9 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
 | `AdminDashboardScreen.tsx` | Screen 14: admin dashboard (byte-identical to the hand-off in `14.md`) |
 | `UserManagementScreen.tsx` | Screen 15: user management (byte-identical to the hand-off in `15.md`) |
 | `ThreatInformationScreen.tsx` | Screen 16: threat information management (byte-identical to the hand-off in `16.md`) |
-| `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`, Feather `shield-check` → `shield`), imported first in `App.tsx` |
-| `App.tsx` | Renders the welcome screen (swap to preview any of the sixteen screens) |
+| `HelpContentScreen.tsx` | Screen 17: help content management (byte-identical to the hand-off in `17.md`) |
+| `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`, Feather `shield-check` → `shield`, Ionicons `bold` → `text`, Ionicons `italic` → `text-outline`), imported first in `App.tsx` |
+| `App.tsx` | Renders the welcome screen (swap to preview any of the seventeen screens) |
 | `index.ts` | Expo entry point (`registerRootComponent`) |
 | `app.json` | Expo app configuration |
 | `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`, `expo-clipboard`, `lucide-react-native`, `react-native-svg`) |
@@ -533,6 +534,72 @@ wired:
   its own dropdown is open, preserving the hand-off's native stacking when
   two menus are open at once.
 
+## Help-content screen (screen 17)
+
+Byte-identical to the code hand-off in `17.md`. What it does and how it is
+wired:
+
+- **Desktop-style admin layout** — dark sidebar (brand shield, seven nav
+  items with "Help Content" active, System Healthy card, version), white
+  top bar (menu, bell with red dot, AD admin account), page header with a
+  book tile and "New Article" button, four content tabs (Articles / FAQs /
+  Security Tips / Announcements), an articles table card (Title / Status /
+  Last Updated / Actions — 6 sample articles with published/draft pills,
+  live "Showing x–y of z" footer), an editor panel (title input, rich-text
+  toolbar, content area, Preview + Publish Changes, info banner), and a
+  preview modal.
+- **Built-in interactions (from the hand-off)** — the tabs switch (each
+  keeps its own search placeholder); search filters titles and content
+  live with a "No content found" empty state; clicking a row or its edit
+  button loads it into the editor; "New Article" empties the form into
+  new-article mode and the published item is prepended on publish;
+  "Publish Changes" validates (missing title/content) and writes back
+  with today's date and a published confirmation; every row's ⋮ menu
+  publishes/unpublishes or deletes the article behind the
+  "Article actions" dialog, clearing the editor if the open article is
+  deleted; the toolbar's Preview button and the Preview button open the
+  preview modal (✕ / "Close preview" close it); the other toolbar buttons
+  are honest "Connect this formatting action" placeholders. Filter,
+  notifications, the admin account and the top-bar menu show honest
+  alerts instead of fake screens.
+- **Icon glyphs** — every Ionicons name used by this hand-off exists in
+  the installed glyphmap except the rich-text toolbar's `bold` and
+  `italic` (1,357 names checked — the family has no bold/italic glyphs at
+  all). `glyphPatches.ts` aliases `bold` → `text` and `italic` →
+  `text-outline` (the closest real typography glyphs, visually distinct
+  from each other) at runtime, **without touching the byte-identical
+  screen code**.
+- **Wired to the real app (glue, not in the hand-off)** — the web preview
+  wraps the screen in a click-capture bridge: the sidebar items route to
+  the real admin screens (Dashboard → 2, Scans → 10, Quarantine → 8,
+  Users → 15, Settings → 11, Threat Intelligence → 16), told apart from
+  same-text page content by the sidebar's dark background colour; the
+  top-bar menu button — the hand-off's own "Connect this menu to your app
+  navigation." integration point, and the same button as screens 14–16 —
+  routes to the admin dashboard screen (14). Bridged items suppress the
+  hand-off's placeholder alerts with a capture-phase stopPropagation
+  (same rationale as screen 16's "Add Indicator" bridge): unlike screens
+  14–16, where the placeholder alert is an inline notice or a silent
+  no-op, here every placeholder becomes a BLOCKING web confirm dialog
+  that would otherwise pop up on every navigation. "Help Content" is this
+  screen (marked active in the hand-off), so it keeps the hand-off's
+  alert, as do the bell and admin-account buttons (no notifications or
+  account screen exists). Everything else stays inside the screen.
+- **Responsive** — below the hand-off's own 1050px breakpoint the sidebar
+  hides and the two workspace panels stack full-width, per the hand-off.
+- **Web-preview glue (hand-off untouched)** — one rule: react-native-web
+  compiles the compact panels' `flex: 0` (`panelCompact`) to a definite
+  `flex-basis: 0%`, which collapses both stacked panels to their 2px
+  borders in the browser (native Yoga cannot resolve the 0% basis
+  against the workspace's auto height, so on a device the panels keep
+  their natural content height). The preview gives those panels
+  `flex-basis: auto`, restoring the intended behaviour; the rule
+  self-scopes because the `panelCompact` style only exists below the
+  hand-off's own breakpoint. No stacking or clip fixes were needed —
+  unlike screens 15/16 this hand-off opens no inline absolute menus (row
+  actions are Alert dialogs, the preview is a real Modal), verified with
+  elementsFromPoint during review.
+
 ## Known notes
 
 - The hand-off references the icon name `file-archive`, which does not exist
@@ -547,6 +614,12 @@ wired:
   `shield-check`, which also does not exist in the Feather glyphmap (only
   `shield` / `shield-off`). `glyphPatches.ts` aliases it to `shield` the
   same way, again without touching the byte-identical screen code.
+- The help-content hand-off (screen 17) names the Ionicons icons `bold`
+  and `italic`, which do not exist in the Ionicons glyphmap (1,357 names
+  checked — no bold/italic family at all). `glyphPatches.ts` aliases
+  `bold` → `text` and `italic` → `text-outline` (the closest real
+  typography glyphs) the same way, again without touching the
+  byte-identical screen code.
 - Same situation on the scan-result screen: the hand-off uses `shield-minus`,
   which also does not exist in the glyphmap. `glyphPatches.ts` aliases it to
   the real minus-shield glyph `shield-remove` (Material Design Icons names

@@ -7,6 +7,7 @@
  * import so the global exists when those modules evaluate.
  */
 import MaterialCommunityIconsGlyphMap from "@expo/vector-icons/build/vendor/react-native-vector-icons/glyphmaps/MaterialCommunityIcons.json";
+import IoniconsGlyphMap from "@expo/vector-icons/build/vendor/react-native-vector-icons/glyphmaps/Ionicons.json";
 
 if (typeof globalThis.__DEV__ === "undefined") {
   (globalThis as { __DEV__?: boolean }).__DEV__ =
@@ -32,6 +33,30 @@ if (!mciGlyphMap["file-archive"]) {
 }
 if (!mciGlyphMap["shield-minus"]) {
   mciGlyphMap["shield-minus"] = mciGlyphMap["shield-remove"];
+}
+
+/**
+ * Glyph aliases for the help-content screen (mirrors `glyphPatches.ts` in
+ * the Expo package, which the web preview does not import).
+ *
+ * The help-content hand-off (screen 17) uses two Ionicons names that do
+ * not exist in the Ionicons glyphmap (1,357 names checked — the family has
+ * no bold/italic glyph family at all):
+ * - `bold` (rich-text toolbar, Bold button) — real typography glyph: `text`
+ * - `italic` (rich-text toolbar, Italic button) — real typography glyph:
+ *   `text-outline` (same "Aa" family as `text`, visually distinct from it)
+ *
+ * Same trick as above: the glyphmap JSON is a shared module instance and
+ * names resolve at render time, so aliasing them here maps the hand-off's
+ * names to the intended glyphs WITHOUT touching the byte-identical screen
+ * code.
+ */
+const ioniconsGlyphMap = IoniconsGlyphMap as Record<string, number>;
+if (!ioniconsGlyphMap["bold"]) {
+  ioniconsGlyphMap["bold"] = ioniconsGlyphMap["text"];
+}
+if (!ioniconsGlyphMap["italic"]) {
+  ioniconsGlyphMap["italic"] = ioniconsGlyphMap["text-outline"];
 }
 
 /**
