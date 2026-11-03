@@ -600,6 +600,66 @@ wired:
   actions are Alert dialogs, the preview is a real Modal), verified with
   elementsFromPoint during review.
 
+## System-health screen (screen 18)
+
+Byte-identical to the code hand-off in `18.md`. What it does and how it is
+wired:
+
+- **Desktop-style admin layout** — dark sidebar (brand shield, nine nav
+  items with "System Health" active, System Healthy footer card, version),
+  white top bar (menu, bell with red dot, AD admin account), page header
+  with an activity tile and a "Last 30 days" selector, three metric cards
+  (Service Availability 99.8%, Recent Errors 3, Admin Actions 12) with
+  decorative sparklines, a "Recent Audit Logs" card (search box, event and
+  result filter selects, Time / Event Type / Result / Actor / Details
+  columns, six sample rows with Success/Failed pills, a chevron per row
+  and a 1…9 pagination footer), and a bottom row with a "Recent Errors"
+  panel (three tagged rows) and a "System Status" panel ("All Systems
+  Operational" with a status sparkline).
+- **Built-in interactions (from the hand-off)** — the search box filters
+  the audit rows live across time, event, actor and details, with a
+  "No audit logs match your filters." empty state; the event and result
+  selects toggle between "All …" and one sample filter each ("Scan
+  Completed" / "Failed"); the pagination buttons move the selected page
+  (1–9, prev/next, active page highlighted blue) and the "Showing x–y"
+  footer tracks the visible rows; sidebar items highlight on tap. All
+  data is sample data, per the hand-off's own notes.
+- **Icons** — this hand-off uses `lucide-react-native`, whose icons are
+  real SVG components (not glyphmap fonts), so no `glyphPatches.ts`
+  aliases are needed — the glyphmap checks of screens ≤ 17 don't apply.
+- **Wired to the real app (glue, not in the hand-off)** — the web preview
+  wraps the screen in a click-capture bridge: the sidebar items route to
+  the real admin screens (Dashboard → 2, Scans → 10, Quarantine → 8,
+  Users → 15, Settings → 11, Threat Intelligence → 16, Help Content →
+  17), told apart from same-text page content by the sidebar's dark
+  background colour; "System Health" is this screen itself (marked active
+  in the hand-off) and "Audit Logs" is this screen's own table, so both
+  keep the hand-off's highlight-only behaviour. The top-bar menu button —
+  the same integration point as screens 14–17 — routes to the admin
+  dashboard screen (14); it is matched by its "Open menu" accessibility
+  label because lucide icons are SVGs with no text glyph to match. The
+  hand-off raises no placeholder alerts, so — unlike screen 17 — there is
+  nothing to suppress; the bridge only keeps routed clicks from also
+  mutating the hand-off's local `active` state right before the route
+  change unmounts the screen. The bell, admin account, "Last 30 days"
+  selector and the two "View …" links are hand-off placeholders and stay
+  as they are (no notifications, account or error-details screens exist).
+- **Responsive** — the hand-off's own breakpoints: below 1100px the
+  sidebar collapses to a 76px icon rail, the metric cards wrap and the
+  panel header stacks its filters under the title; below 760px the
+  sidebar moves inside the scroll content and the top bar drops the
+  "Admin" name; the audit table keeps its 1060px min-width and scrolls
+  horizontally inside the card. The brand text is not guarded at compact
+  widths in the hand-off (it clips against the 76px rail on web; native
+  Yoga would wrap it letter-by-letter) — left byte-identical, like the
+  sample data.
+- **Web-preview glue (hand-off untouched)** — none needed: unlike
+  screens 15–17 this hand-off opens no inline absolute menus or modals
+  (the filters toggle in place, pagination is inline) and its breakpoints
+  run off `useWindowDimensions`, which react-native-web wires to the
+  visual viewport; verified with an interaction pass and a clean console
+  sweep during review.
+
 ## Known notes
 
 - The hand-off references the icon name `file-archive`, which does not exist
