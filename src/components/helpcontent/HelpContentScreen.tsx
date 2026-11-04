@@ -100,6 +100,8 @@ const NAV_ITEMS = [
   { label: "Settings", icon: "settings-outline" as const },
   { label: "Threat Intelligence", icon: "shield-checkmark-outline" as const },
   { label: "Help Content", icon: "help-circle" as const },
+  { label: "Real-Time Protection", icon: "pulse-outline" as const },
+  { label: "Privacy Audit", icon: "lock-closed-outline" as const },
 ];
 
 export default function HelpContentScreen() {

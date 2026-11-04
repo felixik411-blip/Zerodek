@@ -65,6 +65,8 @@ export default function UserManagementScreen() {
     { title: "Quarantine", icon: "file-tray-full" as const },
     { title: "Users", icon: "person" as const },
     { title: "Settings", icon: "settings" as const },
+    { title: "Real-Time Protection", icon: "pulse" as const },
+    { title: "Privacy Audit", icon: "lock-closed" as const },
     { title: "Help & Support", icon: "help-circle" as const },
   ];
 

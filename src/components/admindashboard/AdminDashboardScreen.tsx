@@ -100,6 +100,8 @@ export default function AdminDashboardScreen() {
           <NavItem icon="archive" label="Quarantine" active={activeNav === 'Quarantine'} onPress={() => navigate('Quarantine')} />
           <NavItem icon="user" label="Users" active={activeNav === 'Users'} onPress={() => navigate('Users')} />
           <NavItem icon="settings" label="Settings" active={activeNav === 'Settings'} onPress={() => navigate('Settings')} />
+          <NavItem icon="zap" label="Real-Time Protection" active={activeNav === 'Real-Time Protection'} onPress={() => navigate('Real-Time Protection')} />
+          <NavItem icon="eye" label="Privacy Audit" active={activeNav === 'Privacy Audit'} onPress={() => navigate('Privacy Audit')} />
           <NavItem icon="help-circle" label="Help & Support" active={activeNav === 'Help & Support'} onPress={() => navigate('Help & Support')} />
         </View>
         <View style={s.sidebarFooter}>
@@ -134,6 +136,30 @@ export default function AdminDashboardScreen() {
             <Metric icon="file-text" label="File Scans" value="173" caption="Successful scans" bg="#FCFAFF" iconBg={C.purpleBg} color={C.purple} />
             <Metric icon="link" label="Link Checks" value="75" caption="Links checked" bg="#F4FCFC" iconBg="#D8F8F4" color={C.teal} />
             <Metric icon="alert-triangle" label="Recent Errors" value="3" caption={`In the ${period.toLowerCase()}`} bg="#FFFAFA" iconBg="#FFE3E5" color={C.red} />
+          </View>
+
+          <View style={s.sectionHead}>
+            <Text style={s.sectionTitle}>Protection &amp; Privacy</Text>
+            <Text style={s.sectionSubtitle}>Jump straight into the newest control centres.</Text>
+          </View>
+          <View style={[s.protectionRow, !desktop && s.protectionRowNarrow]}>
+            <Pressable onPress={() => navigate('Real-Time Protection')} style={({ pressed }) => [s.protectionTile, pressed && { opacity: 0.85 }]}>
+              <View style={s.protectionTileIcon}><Feather name="zap" size={22} color={C.blue} /></View>
+              <View style={s.protectionTileCopy}>
+                <Text style={s.protectionTileTitle}>Real-Time Protection</Text>
+                <Text style={s.protectionTileSub}>ON — downloads &amp; links scanned as they arrive</Text>
+              </View>
+              <View style={s.liveBadge}><View style={s.liveDot} /><Text style={s.liveText}>LIVE</Text></View>
+              <Feather name="chevron-right" size={18} color="#7194C8" />
+            </Pressable>
+            <Pressable onPress={() => navigate('Privacy Audit')} style={({ pressed }) => [s.protectionTile, pressed && { opacity: 0.85 }]}>
+              <View style={[s.protectionTileIcon, { backgroundColor: '#F1EDFF' }]}><Feather name="eye" size={22} color="#7A5AF8" /></View>
+              <View style={s.protectionTileCopy}>
+                <Text style={s.protectionTileTitle}>Privacy Audit</Text>
+                <Text style={s.protectionTileSub}>Score 78 — 2 revocations recommended</Text>
+              </View>
+              <Feather name="chevron-right" size={18} color="#7194C8" />
+            </Pressable>
           </View>
 
           <View style={[s.contentGrid, !desktop && s.contentGridNarrow]}>
@@ -205,6 +231,19 @@ const s = StyleSheet.create({
   noticeText: { flex: 1, color: C.text, fontSize: 12, lineHeight: 18 },
   metrics: { flexDirection: 'row', gap: 16, marginBottom: 20 },
   metricsNarrow: { flexWrap: 'wrap' },
+  sectionHead: { marginBottom: 14 },
+  sectionTitle: { color: C.text, fontSize: 17, fontWeight: '800', letterSpacing: -0.2 },
+  sectionSubtitle: { color: C.muted, fontSize: 12, marginTop: 4 },
+  protectionRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+  protectionRowNarrow: { flexDirection: 'column' },
+  protectionTile: { flex: 1, minWidth: 260, minHeight: 84, borderWidth: 1, borderColor: C.border, borderRadius: 10, backgroundColor: C.white, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 16, paddingVertical: 14 },
+  protectionTileIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#E8F2FF', alignItems: 'center', justifyContent: 'center' },
+  protectionTileCopy: { flex: 1, minWidth: 0 },
+  protectionTileTitle: { color: C.text, fontSize: 14, fontWeight: '800' },
+  protectionTileSub: { color: C.muted, fontSize: 11, lineHeight: 16, marginTop: 4 },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#DDF7EE', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.green },
+  liveText: { color: '#079A69', fontSize: 9, fontWeight: '800', letterSpacing: 0.6 },
   metric: { flex: 1, minWidth: 145, minHeight: 147, borderWidth: 1, borderRadius: 9, padding: 15, flexDirection: 'row', gap: 12 },
   metricIcon: { width: 56, height: 56, borderRadius: 30, alignItems: 'center', justifyContent: 'center' },
   metricText: { flex: 1, minWidth: 0, paddingTop: 8 },

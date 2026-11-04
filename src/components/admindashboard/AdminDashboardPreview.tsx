@@ -32,7 +32,8 @@ const loadScreen = () => import('./AdminDashboardScreen');
  * wraps the screen in a click-capture bridge:
  *
  * - Sidebar items route to the real screens (Dashboard, Scans, Quarantine,
- *   Users, Settings, Help & Support) by suffix match — the Feather icon
+ *   Users, Settings, Help & Support, Real-Time Protection, Privacy Audit)
+ *   by suffix match — the Feather icon
  *   glyph prefixes each item's innerText. "Users" routes to the
  *   user-management screen (upload/15.md, served at /user-management/).
  *   Sidebar clicks are told apart from same-text page content (e.g. the
@@ -105,6 +106,8 @@ function AdminDashboardPreviewInner() {
             else if (text.endsWith('Users')) destination = '/user-management/';
             else if (text.endsWith('Settings')) destination = '/settings/';
             else if (text.endsWith('Help & Support')) destination = '/help-about/';
+            else if (text.endsWith('Real-Time Protection')) destination = '/real-time-protection/';
+            else if (text.endsWith('Privacy Audit')) destination = '/privacy-audit/';
           }
         } else if (ACTIVITY_ITEMS.includes(text)) {
           destination = '/scan-history/';
@@ -122,6 +125,20 @@ function AdminDashboardPreviewInner() {
         ) {
           // "View all" in Recent Activity (its panel header is unique).
           destination = '/scan-history/';
+        } else if (
+          text.length < 160 &&
+          text.includes('downloads & links scanned as they arrive')
+        ) {
+          // The Real-Time Protection tile in the Protection & Privacy
+          // section. Matched by its unique subtitle, not the title: the
+          // Feather glyph prefixes the tile's innerText (the same reason
+          // the sidebar rules match by suffix).
+          destination = '/real-time-protection/';
+        } else if (
+          text.length < 160 &&
+          text.includes('revocations recommended')
+        ) {
+          destination = '/privacy-audit/';
         }
         node = node.parentElement;
       }

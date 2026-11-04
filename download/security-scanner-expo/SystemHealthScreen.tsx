@@ -34,6 +34,8 @@ import {
   BookOpen,
   HeartPulse,
   X,
+  Zap,
+  Lock,
 } from "lucide-react-native";
 
 type AuditEvent = {
@@ -113,6 +115,8 @@ const NAV_ITEMS = [
   { label: "Help Content", icon: BookOpen },
   { label: "System Health", icon: Activity },
   { label: "Audit Logs", icon: FileText },
+  { label: "Real-Time Protection", icon: Zap },
+  { label: "Privacy Audit", icon: Lock },
 ];
 
 function Brand() {

@@ -109,6 +109,8 @@ function SystemHealthPreviewInner() {
           else if (text.endsWith('Settings')) destination = '/settings/';
           else if (text.endsWith('Threat Intelligence')) destination = '/threat-information/';
           else if (text.endsWith('Help Content')) destination = '/help-content/';
+          else if (text.endsWith('Real-Time Protection')) destination = '/real-time-protection/';
+          else if (text.endsWith('Privacy Audit')) destination = '/privacy-audit/';
           // "System Health" is the current screen and "Audit Logs" its
           // own table — no bridge for either.
         }

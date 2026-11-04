@@ -660,6 +660,95 @@ wired:
   visual viewport; verified with an interaction pass and a clean console
   sweep during review.
 
+## Real-time protection screen (screen 19)
+
+Authored to the app's design system (no hand-off was supplied for this
+one) using the screen-18 shell: same dark sidebar (#101E30) and top bar,
+lucide icons, same 1100px/760px breakpoints. `RealTimeProtectionScreen.tsx`
+is the single source; the web copy under `src/components/`
+realtimeprotection/ is byte-identical to it. What it does:
+
+- **Master switch hero** — "Real-time protection is ON" with a live
+  green shield card; flipping the switch turns the card amber/red
+  ("Real-time protection is OFF"), stops the feed and layers, and shows
+  a "Resume now" button. While protection is ON, three pause chips
+  ("15 minutes" / "1 hour" / "Until tomorrow") pause with an explicit
+  notice instead of a bare toggle.
+- **Protection layers** — four rows (Download scanning, Link & URL
+  checking, Email attachment scanning, Removable drive scanning), each
+  its own switch with a live "x of 4 layers active" summary; toggles
+  are blocked with an inline notice while protection is paused.
+- **Live protection feed** — sample events with Download/Link/Email/USB
+  pills and Scanning (pulsing blue) / Clean (green) / Blocked (red)
+  status pills; "Simulate event" prepends a row that scans for ~1.4s
+  then resolves, bumping the matching stat and (on a block) raising a
+  notice; "Clear" empties the feed into an honest empty state.
+- **Stats row** — threats blocked, links checked, downloads scanned and
+  average scan time, all updating from the feed.
+- **Wired to the real app** — sidebar carries the full admin nav
+  (including the new items); the web preview bridges it exactly like
+  screens 15–18 (suffix match inside the #101E30 sidebar; "Real-Time
+  Protection" is this screen), and the top-bar menu button routes to the
+  admin dashboard (14) via its "Open menu" accessibility label.
+
+## Privacy-audit screen (screen 20)
+
+Same authored-to-design-system approach as screen 19 (screen-18 shell,
+lucide icons, identical breakpoints). `PrivacyAuditScreen.tsx`; the web
+copy is byte-identical. What it does:
+
+- **Privacy score card** — score ring + bar with tone logic (amber
+  below 80, green at/above, red below 60), a live "x of 6 permission
+  groups granted · y apps with access" summary and the audit timestamp.
+  "Re-run full audit" runs a ~1.5s animated progress pass and lifts the
+  score (+8, plus +4 per still-open revoke recommendation) with an
+  "Audit complete" notice.
+- **Device permissions** — six groups (Camera, Microphone, Location,
+  Contacts, Files & folders, Notifications) with grant/revoke switches,
+  Granted/Revoked state text, per-group app counts and last-used times;
+  every flip adjusts the score and drops an inline notice.
+- **Which app used what** — six sample app rows with risk pills
+  (High/Medium/Low) and a "Revoke" button per row; revoking removes the
+  row, raises the score by risk (High +5, Medium +3, Low +2, capped at
+  99) and clears any recommendation tied to that app. Empty state after
+  the last revoke.
+- **Recommendations** — actionable rows ("Free Game hasn't used Location
+  in 32 days", "Fitness Tracker reads your Contacts", startup apps):
+  "Revoke" acts on the matching app row, "Review" dismisses with an
+  honest notice; the panel collapses to an empty state when clear.
+- **Wired to the real app** — same bridge pattern as screen 19 (full
+  admin sidebar, "Privacy Audit" is this screen, menu button routes to
+  the admin dashboard).
+
+## App-wide edits for screens 19–20 (user-requested)
+
+At the user's request ("customize the layout, style, do some edits on
+the screens and add real-time download/link protection + privacy and
+permission audit"), the previously byte-identical screens below were
+edited. The exact deltas, so nothing else moves:
+
+- **Admin dashboard (14)** — two new sidebar items ("Real-Time
+  Protection" with Feather `zap`, "Privacy Audit" with Feather `eye`;
+  same notice-based navigate as the other items) and a new "Protection
+  & Privacy" section between the metrics and the content grid: two
+  tiles (live-status line for protection, score line for the audit)
+  that navigate the same way and route on the web via unique subtitle
+  matches in the preview bridge.
+- **User management (15)** — two entries appended to the sidebar
+  `navItems` array (Ionicons `pulse`, `lock-closed`; both verified in
+  the glyphmap). Behaviour unchanged (same inline notice).
+- **Help content (17)** — two entries appended to `NAV_ITEMS`
+  (Ionicons `pulse-outline`, `lock-closed-outline`). They inherit the
+  hand-off's "navigation is not wired" alert, which the web preview
+  suppresses and routes, exactly like the other bridged items.
+- **System health (18)** — two entries appended to its lucide
+  `NAV_ITEMS` (`Zap`, `Lock`) plus the two new imports. No other
+  changes.
+- The previews of 14/15/17/18 gained the two suffix rules
+  (`'Real-Time Protection'` → `/real-time-protection/`,
+  `'Privacy Audit'` → `/privacy-audit/`); screen 16 (threat
+  information) has no sidebar and was left untouched.
+
 ## Known notes
 
 - The hand-off references the icon name `file-archive`, which does not exist

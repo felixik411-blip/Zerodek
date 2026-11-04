@@ -115,6 +115,8 @@ function HelpContentPreviewInner() {
           else if (text.endsWith('Users')) destination = '/user-management/';
           else if (text.endsWith('Settings')) destination = '/settings/';
           else if (text.endsWith('Threat Intelligence')) destination = '/threat-information/';
+          else if (text.endsWith('Real-Time Protection')) destination = '/real-time-protection/';
+          else if (text.endsWith('Privacy Audit')) destination = '/privacy-audit/';
           // "Help Content" is the current screen — no bridge.
         }
         node = node.parentElement;

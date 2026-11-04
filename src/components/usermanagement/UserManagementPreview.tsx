@@ -79,6 +79,8 @@ function UserManagementPreviewInner() {
           // "Users" is the current screen — no bridge.
           else if (text.endsWith('Settings')) destination = '/settings/';
           else if (text.endsWith('Help & Support')) destination = '/help-about/';
+          else if (text.endsWith('Real-Time Protection')) destination = '/real-time-protection/';
+          else if (text.endsWith('Privacy Audit')) destination = '/privacy-audit/';
         }
         node = node.parentElement;
       }
