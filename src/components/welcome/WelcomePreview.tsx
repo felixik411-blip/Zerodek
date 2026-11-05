@@ -28,6 +28,8 @@ const ROUTES: Record<string, string> = {
   'real-time-protection': '/real-time-protection/',
   'privacy-audit': '/privacy-audit/',
   dashboard: '/dashboard/',
+  'system-health': '/system-health/',
+  'admin-dashboard': '/admin-dashboard/',
 };
 
 /**

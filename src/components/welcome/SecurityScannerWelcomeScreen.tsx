@@ -42,7 +42,9 @@ type NavTarget =
   | 'settings'
   | 'real-time-protection'
   | 'privacy-audit'
-  | 'dashboard';
+  | 'dashboard'
+  | 'system-health'
+  | 'admin-dashboard';
 
 type ActivityItem = {
   id: string;
@@ -120,6 +122,211 @@ const OVERVIEW: Record<Period, OverviewSnapshot> = {
 
 /** Free-plan monthly scan quota shown on the dashboard (demo values). */
 const QUOTA = { used: 12, total: 20 };
+
+/**
+ * Security-operations band (dark ops-style layout): threat-severity and
+ * system-health arc gauges plus alert-statistics tiles. The figures are the
+ * illustrative demo snapshot from the reference layout — clearly labelled as
+ * such, never presented as live monitoring output.
+ */
+type OpsTone = 'blue' | 'red' | 'amber' | 'cyan';
+
+type OpsAlert = {
+  id: string;
+  label: string;
+  value: number;
+  tone: OpsTone;
+  spark: number[];
+  target: NavTarget;
+};
+
+const OPS_SEVERITY = 76;
+const OPS_HEALTH = 92;
+
+const OPS_ALERTS: OpsAlert[] = [
+  {
+    id: 'total',
+    label: 'Total alerts',
+    value: 324,
+    tone: 'blue',
+    spark: [42, 55, 38, 61, 47, 70, 52, 64, 58, 72],
+    target: 'scan-history',
+  },
+  {
+    id: 'critical',
+    label: 'Critical alerts',
+    value: 56,
+    tone: 'red',
+    spark: [12, 18, 9, 22, 15, 26, 19, 24, 21, 28],
+    target: 'threat-information',
+  },
+  {
+    id: 'intrusion',
+    label: 'Intrusion attempts',
+    value: 88,
+    tone: 'amber',
+    spark: [20, 14, 26, 18, 30, 22, 34, 27, 36, 31],
+    target: 'real-time-protection',
+  },
+  {
+    id: 'malware',
+    label: 'Malware detections',
+    value: 27,
+    tone: 'cyan',
+    spark: [8, 14, 6, 17, 11, 19, 13, 16, 12, 18],
+    target: 'quarantine',
+  },
+];
+
+const OPS_TONES: Record<OpsTone, string> = {
+  blue: '#4DA3FF',
+  red: '#FF5C5C',
+  amber: '#FFB648',
+  cyan: '#3AD3D8',
+};
+
+const OPS_TONES_MUTED: Record<OpsTone, string> = {
+  blue: 'rgba(77,163,255,0.32)',
+  red: 'rgba(255,92,92,0.32)',
+  amber: 'rgba(255,182,72,0.32)',
+  cyan: 'rgba(58,211,216,0.32)',
+};
+
+/** Ease-out 0→1 ramp that drives the band's counters and gauge sweeps. */
+function useRampUp(duration = 950): number {
+  const [progress, setProgress] = React.useState(0);
+  React.useEffect(() => {
+    const started = Date.now();
+    const id = setInterval(() => {
+      const linear = Math.min(1, (Date.now() - started) / duration);
+      setProgress(1 - Math.pow(1 - linear, 3));
+      if (linear >= 1) {
+        clearInterval(id);
+      }
+    }, 33);
+    return () => clearInterval(id);
+  }, [duration]);
+  return progress;
+}
+
+/** Zone colour for one arc segment, position 0..1 along the gauge. */
+function gaugeZoneColor(kind: 'threat' | 'health', position: number): string {
+  if (kind === 'threat') {
+    if (position < 0.4) {
+      return '#35D08F';
+    }
+    if (position < 0.7) {
+      return '#F5A73B';
+    }
+    return '#F2555A';
+  }
+  if (position < 0.72) {
+    return '#43CDA0';
+  }
+  if (position < 0.88) {
+    return '#F5C043';
+  }
+  return '#F2913B';
+}
+
+const GAUGE_SEGMENTS = 26;
+const GAUGE_SWEEP = 250;
+
+/**
+ * Segment-arc gauge built from rotated bars (pure View primitives, no SVG):
+ * filled segments up to `value` take their zone colour, the rest stay track-
+ * coloured. The count-up and sweep animate in on mount.
+ */
+function ArcGauge({
+  kind,
+  value,
+  progress,
+  size,
+}: {
+  kind: 'threat' | 'health';
+  value: number;
+  progress: number;
+  size: number;
+}) {
+  const filled = Math.round((value / 100) * GAUGE_SEGMENTS * progress);
+  const step = GAUGE_SWEEP / (GAUGE_SEGMENTS - 1);
+  const start = -GAUGE_SWEEP / 2;
+  return (
+    <View style={[styles.gauge, { width: size, height: size }]}>
+      {Array.from({ length: GAUGE_SEGMENTS }, (_, i) => {
+        const position = i / (GAUGE_SEGMENTS - 1);
+        const active = i < filled;
+        return (
+          <View
+            key={i}
+            style={[styles.gaugeArm, { transform: [{ rotate: `${start + i * step}deg` }] }]}
+          >
+            <View
+              style={[
+                styles.gaugeSegment,
+                {
+                  backgroundColor: active
+                    ? gaugeZoneColor(kind, position)
+                    : '#1C3355',
+                },
+              ]}
+            />
+          </View>
+        );
+      })}
+      <View style={styles.gaugeCenter}>
+        <Text style={styles.gaugeValue}>{Math.round(value * progress)}%</Text>
+        <Text style={styles.gaugeLabel}>
+          {kind === 'threat' ? 'Severity index' : 'Normal'}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function AlertTile({
+  alert,
+  progress,
+  onPress,
+}: {
+  alert: OpsAlert;
+  progress: number;
+  onPress: () => void;
+}) {
+  const value = Math.round(alert.value * progress);
+  const peak = Math.max(...alert.spark);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${alert.label}: ${alert.value}. Opens the matching screen.`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.alertTile, pressed && styles.opsPressed]}
+    >
+      <View style={styles.alertTileTop}>
+        <Text style={styles.alertTileLabel}>{alert.label}</Text>
+        <View style={[styles.alertTileDot, { backgroundColor: OPS_TONES[alert.tone] }]} />
+      </View>
+      <Text style={[styles.alertTileValue, { color: OPS_TONES[alert.tone] }]}>{value}</Text>
+      <View style={styles.alertSpark}>
+        {alert.spark.map((height, i) => (
+          <View
+            key={i}
+            style={[
+              styles.alertSparkBar,
+              {
+                height: `${Math.max(14, Math.round((height / peak) * 100))}%`,
+                backgroundColor:
+                  i === alert.spark.length - 1
+                    ? OPS_TONES[alert.tone]
+                    : OPS_TONES_MUTED[alert.tone],
+              },
+            ]}
+          />
+        ))}
+      </View>
+    </Pressable>
+  );
+}
 
 type FeatureProps = {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -337,6 +544,9 @@ export default function SecurityScannerWelcomeScreen({
   const [navNotice, setNavNotice] = React.useState<string | null>(null);
   const refreshTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const navTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Ramp-up progress for the security-operations band's gauges and counters.
+  const opsProgress = useRampUp();
 
   React.useEffect(() => {
     return () => {
@@ -729,6 +939,78 @@ export default function SecurityScannerWelcomeScreen({
               <Text style={styles.navNoticeText}>{navNotice}</Text>
             </View>
           )}
+        </View>
+
+        <View style={[styles.ops, isWide && styles.opsWide]}>
+          <View style={styles.opsHeader}>
+            <View style={styles.opsHeaderText}>
+              <Text style={styles.opsTitle}>Security operations</Text>
+              <Text style={styles.opsSubtitle}>
+                Threat severity, system health and alert volume — every panel opens the matching screen.
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open admin dashboard"
+              onPress={() => handleNavigate('admin-dashboard')}
+              style={({ pressed }) => [styles.opsLinkHit, pressed && styles.opsPressed]}
+            >
+              <Text style={styles.opsLink}>Open admin dashboard →</Text>
+            </Pressable>
+          </View>
+
+          <View style={[styles.opsGrid, !isWide && styles.opsColumn]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Threat severity ${OPS_SEVERITY} percent. Opens threat information.`}
+              onPress={() => handleNavigate('threat-information')}
+              style={({ pressed }) => [
+                styles.opsCard,
+                !isWide && styles.opsCardNarrow,
+                pressed && styles.opsPressed,
+              ]}
+            >
+              <Text style={styles.opsCardTitle}>Threat severity</Text>
+              <ArcGauge kind="threat" value={OPS_SEVERITY} progress={opsProgress} size={isWide ? 208 : 178} />
+              <View style={styles.opsLegend}>
+                <Text style={styles.opsLegendText}>Low</Text>
+                <Text style={styles.opsLegendText}>High</Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`System health ${OPS_HEALTH} percent, normal. Opens the system health screen.`}
+              onPress={() => handleNavigate('system-health')}
+              style={({ pressed }) => [
+                styles.opsCard,
+                !isWide && styles.opsCardNarrow,
+                pressed && styles.opsPressed,
+              ]}
+            >
+              <Text style={styles.opsCardTitle}>System health</Text>
+              <ArcGauge kind="health" value={OPS_HEALTH} progress={opsProgress} size={isWide ? 208 : 178} />
+              <Text style={styles.opsNote}>All services operational · 99.98% uptime</Text>
+            </Pressable>
+
+            <View style={[styles.opsCard, !isWide && styles.opsCardNarrow]}>
+              <Text style={styles.opsCardTitle}>Alert statistics</Text>
+              <View style={styles.alertGrid}>
+                {OPS_ALERTS.map((alert) => (
+                  <AlertTile
+                    key={alert.id}
+                    alert={alert}
+                    progress={opsProgress}
+                    onPress={() => handleNavigate(alert.target)}
+                  />
+                ))}
+              </View>
+            </View>
+          </View>
+
+          <Text style={styles.opsFootnote}>
+            Illustrative figures from the demo snapshot — not live monitoring output.
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -1479,5 +1761,199 @@ const styles = StyleSheet.create({
     color: '#3B5B8C',
     fontSize: 13,
     flex: 1,
+  },
+  ops: {
+    width: '100%',
+    marginTop: 18,
+    backgroundColor: '#101E36',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#24406B',
+    padding: 22,
+    shadowColor: '#0A1428',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 6,
+  },
+  opsWide: {
+    padding: 28,
+  },
+  opsHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 18,
+  },
+  opsHeaderText: {
+    flexShrink: 1,
+    minWidth: 220,
+  },
+  opsTitle: {
+    color: '#F2F7FF',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+  opsSubtitle: {
+    color: '#8FA6C9',
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 4,
+  },
+  opsLinkHit: {
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(77,163,255,0.12)',
+  },
+  opsLink: {
+    color: '#7FB4FF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  opsPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.99 }],
+  },
+  opsGrid: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 14,
+  },
+  opsColumn: {
+    flexDirection: 'column',
+  },
+  opsCard: {
+    flexGrow: 1,
+    flexBasis: '31%',
+    minWidth: 240,
+    backgroundColor: '#152847',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#27476F',
+    padding: 16,
+    alignItems: 'center',
+  },
+  opsCardNarrow: {
+    width: '100%',
+    flexBasis: 'auto',
+  },
+  opsCardTitle: {
+    color: '#C9D9F2',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  gauge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gaugeArm: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+  },
+  gaugeSegment: {
+    width: 9,
+    height: 24,
+    borderRadius: 5,
+    marginTop: 5,
+  },
+  gaugeCenter: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gaugeValue: {
+    color: '#FFFFFF',
+    fontSize: 38,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  gaugeLabel: {
+    color: '#8FA6C9',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  opsLegend: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignSelf: 'stretch',
+    marginTop: 10,
+  },
+  opsLegendText: {
+    color: '#6E86AB',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  opsNote: {
+    color: '#6E86AB',
+    fontSize: 12,
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  alertGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    alignSelf: 'stretch',
+  },
+  alertTile: {
+    flexGrow: 1,
+    flexBasis: '46%',
+    backgroundColor: '#0C1830',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1F3A61',
+    padding: 12,
+  },
+  alertTileTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  alertTileLabel: {
+    color: '#8FA6C9',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  alertTileDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  alertTileValue: {
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    marginTop: 6,
+  },
+  alertSpark: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 3,
+    height: 26,
+    marginTop: 10,
+  },
+  alertSparkBar: {
+    width: 6,
+    borderRadius: 2,
+  },
+  opsFootnote: {
+    color: '#5F7699',
+    fontSize: 11,
+    marginTop: 14,
   },
 });

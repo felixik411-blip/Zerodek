@@ -837,6 +837,27 @@ The demo numbers are clearly illustrative (welcome/preview context) and no
 live scan result is implied, per the honesty rules in the product decisions
 document.
 
+### Security operations band (dark ops layout, added later)
+
+Below the light overview band, the welcome screen carries a dark ops-style
+layout with three modules, matching the supplied reference dashboard (only
+System Health, Threat Severity and Alert Statistics — no network map or
+incident timeline). Everything is built from plain View primitives (no SVG)
+and is interactive:
+
+| Element | Behaviour |
+| --- | --- |
+| Threat severity gauge | 26-segment arc (250° sweep) with green → amber → red zone ramp, count-up and sweep animation on mount; press opens the threat-information screen |
+| System health gauge | Same arc with green/amber/orange service zones, "Normal" status line and uptime note; press opens the system-health screen |
+| Alert statistics tiles | Total alerts (→ scan history), Critical alerts (→ threat information), Intrusion attempts (→ real-time protection), Malware detections (→ quarantine) — each with tone-coloured sparkline bars and press feedback |
+| "Open admin dashboard" link | Header chip routes to the admin dashboard |
+| Honest labelling | Footnote states the figures are from the demo snapshot, not live monitoring output |
+
+New `onNavigate` targets used by the band: `system-health` and
+`admin-dashboard` (added to the `NavTarget` union; the web preview maps them
+to `/system-health/` and `/admin-dashboard/`). Without a navigator the same
+inline fallback notice applies.
+
 ## Design system (from the product decisions, section 10)
 
 - Navy/charcoal base (`#1D3049`, `#17283E`), light surfaces (`#F8FAFD`), one blue accent (`#1877F2`).
