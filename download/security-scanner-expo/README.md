@@ -2,7 +2,7 @@
 
 The first seventeen screens of the Android security scanner:
 
-1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
+1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop. Below the hero it now carries a **Security overview dashboard band** (scans, threats, links checked, scans remaining, recent activity, protection toggle, quick actions — see the welcome section).
 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
 3. **File-selection screen** — `SecurityScannerFileSelectionScreen.tsx`, byte-identical to the design hand-off (`upload/3.md`). Sample file list with tabs, row selection, "Browse device" via the native document picker, and honest scanner notices.
 4. **Scan-progress screen** — `SecurityScannerScanProgressScreen.tsx`, byte-identical to the design hand-off (`upload/4.md`). Live progress ring + bar demo, honest "this is placeholder UI, not a real scan" messaging, cancel and finish states, and optional `onBackHome` / `onCancel` / `onScanComplete` callbacks for the app shell.
@@ -801,11 +801,41 @@ The component stays navigator-agnostic. When you add React Navigation (or
 Expo Router), connect it like this:
 
 ```tsx
-<SecurityScannerWelcomeScreen onGetStarted={() => navigation.navigate('Dashboard')} />
+<SecurityScannerWelcomeScreen
+  onGetStarted={() => navigation.navigate('Dashboard')}
+  onNavigate={(target) => navigation.navigate(NAV_ROUTE[target])}
+/>
 ```
 
-Until then, `App.tsx` renders the screen without the prop and the honest
-loading + confirmation states apply (the `TODO` comment remains in the code).
+`onNavigate` receives one of the dashboard band's targets: `scan-history`,
+`threat-information`, `website-link`, `file-selection`, `quarantine`,
+`settings`, `real-time-protection`, `privacy-audit` or `dashboard`. Until a
+navigator exists, `App.tsx` renders the screen without the props and the
+honest fallbacks apply (loading + confirmation card for Get started, an
+inline notice for dashboard navigation).
+
+### Security overview dashboard band (added later)
+
+Below the hero, the welcome screen now carries a dashboard-style overview of
+scans and what's left of the free quota. It reuses the hand-off palette and
+icon set, and every element is interactive:
+
+| Element | Behaviour |
+| --- | --- |
+| Period segmented control | Today / This week / All time switches the stat values and the recent-activity list (`tablist` / `tab` roles, selected state announced) |
+| Refresh button | Honest 0.9 s spinner, then the caption reads "Updated just now" — no fake data changes |
+| Scans completed / Threats blocked / Links checked cards | Pressable, navigate to scan history / threat intelligence / website link via `onNavigate` |
+| Scans remaining card | Free-plan quota (8 of 20 left) with a used-quota progress bar; press goes to settings |
+| Recent activity list | Per-period rows with Clean / Threat / Scanning chips; rows and "View all" go to scan history |
+| Real-time protection row | Local toggle flips the sub-copy between active and paused states; the row itself opens the real-time-protection screen |
+| Privacy audit row | "2 app permissions need review" — opens the privacy-audit screen |
+| Last full scan row | Summary line; opens scan history |
+| Quick actions | Scan files → file-selection, Check a link → website-link, Quarantine → quarantine |
+| No navigator connected | Every navigation falls back to a calm inline notice ("Routing isn't connected in this build yet — it works in the web preview.") instead of pretending a route change |
+
+The demo numbers are clearly illustrative (welcome/preview context) and no
+live scan result is implied, per the honesty rules in the product decisions
+document.
 
 ## Design system (from the product decisions, section 10)
 

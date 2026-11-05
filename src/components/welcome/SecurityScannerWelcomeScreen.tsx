@@ -24,6 +24,103 @@ const C = {
   white: '#FFFFFF',
 };
 
+type Period = 'today' | 'week' | 'all';
+
+type ActivityStatus = 'clean' | 'threat' | 'scanning';
+
+/**
+ * Where a dashboard element wants to navigate. The web preview maps these
+ * ids to real routes; the Expo app (no navigator wired yet) shows an honest
+ * inline notice instead of pretending a navigation happened.
+ */
+type NavTarget =
+  | 'scan-history'
+  | 'threat-information'
+  | 'website-link'
+  | 'file-selection'
+  | 'quarantine'
+  | 'settings'
+  | 'real-time-protection'
+  | 'privacy-audit'
+  | 'dashboard';
+
+type ActivityItem = {
+  id: string;
+  name: string;
+  kind: 'file' | 'link';
+  status: ActivityStatus;
+  time: string;
+};
+
+type OverviewSnapshot = {
+  scans: number;
+  scansDelta: string;
+  threats: number;
+  threatsDetail: string;
+  links: number;
+  linksDetail: string;
+  recent: ActivityItem[];
+};
+
+const PERIODS: { id: Period; label: string }[] = [
+  { id: 'today', label: 'Today' },
+  { id: 'week', label: 'This week' },
+  { id: 'all', label: 'All time' },
+];
+
+/**
+ * Illustrative overview data for the dashboard band. It is clearly a demo
+ * snapshot on a welcome screen — no live scan results are implied, per the
+ * honesty rules in the product decisions document.
+ */
+const OVERVIEW: Record<Period, OverviewSnapshot> = {
+  today: {
+    scans: 4,
+    scansDelta: '+2 vs yesterday',
+    threats: 0,
+    threatsDetail: 'Nothing quarantined',
+    links: 9,
+    linksDetail: '1 flagged unsafe',
+    recent: [
+      { id: 't1', name: 'report-q3-final.pdf', kind: 'file', status: 'clean', time: '2 min ago' },
+      { id: 't2', name: 'setup-installer.exe', kind: 'file', status: 'scanning', time: '18 min ago' },
+      { id: 't3', name: 'docs.example.com/release-notes', kind: 'link', status: 'clean', time: '1 hr ago' },
+      { id: 't4', name: 'promo-codes.docx', kind: 'file', status: 'clean', time: '3 hrs ago' },
+    ],
+  },
+  week: {
+    scans: 12,
+    scansDelta: '+5 vs last week',
+    threats: 1,
+    threatsDetail: 'Blocked and quarantined',
+    links: 34,
+    linksDetail: '2 flagged unsafe',
+    recent: [
+      { id: 'w1', name: 'invoice-0847.pdf', kind: 'file', status: 'threat', time: 'Yesterday' },
+      { id: 'w2', name: 'bit.ly/freecoupons', kind: 'link', status: 'threat', time: 'Yesterday' },
+      { id: 'w3', name: 'holiday-photos.zip', kind: 'file', status: 'clean', time: '2 days ago' },
+      { id: 'w4', name: 'github.com/reactnative.dev/docs', kind: 'link', status: 'clean', time: '3 days ago' },
+    ],
+  },
+  all: {
+    scans: 148,
+    scansDelta: 'Since installation',
+    threats: 9,
+    threatsDetail: 'All auto-quarantined',
+    links: 417,
+    linksDetail: '17 flagged unsafe',
+    recent: [
+      { id: 'a1', name: 'setup-tool-2026.exe', kind: 'file', status: 'threat', time: 'Last week' },
+      { id: 'a2', name: 'backup-old-drive.img', kind: 'file', status: 'clean', time: 'Last week' },
+      { id: 'a3', name: 'cdn-assets.example.net/pack', kind: 'link', status: 'clean', time: '2 weeks ago' },
+      { id: 'a4', name: 'resume-2025.docx', kind: 'file', status: 'clean', time: '3 weeks ago' },
+    ],
+  },
+};
+
+/** Free-plan monthly scan quota shown on the dashboard (demo values). */
+const QUOTA = { used: 12, total: 20 };
+
 type FeatureProps = {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   title: string;
@@ -41,6 +138,114 @@ function FeatureRow({ icon, title, description }: FeatureProps) {
         <Text style={styles.featureDescription}>{description}</Text>
       </View>
     </View>
+  );
+}
+
+function StatusChip({ status }: { status: ActivityStatus }) {
+  const meta =
+    status === 'clean'
+      ? { label: 'Clean', chip: styles.chipClean, text: styles.chipTextClean }
+      : status === 'threat'
+        ? { label: 'Threat', chip: styles.chipThreat, text: styles.chipTextThreat }
+        : { label: 'Scanning', chip: styles.chipScanning, text: styles.chipTextScanning };
+  return (
+    <View style={[styles.chip, meta.chip]}>
+      <Text style={[styles.chipText, meta.text]}>{meta.label}</Text>
+    </View>
+  );
+}
+
+type StatCardProps = {
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  value: string;
+  label: string;
+  detail: string;
+  narrow: boolean;
+  onPress: () => void;
+};
+
+function StatCard({ icon, value, label, detail, narrow, onPress }: StatCardProps) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${value}`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.statCard,
+        narrow && styles.statCardNarrow,
+        pressed && styles.cardPressed,
+      ]}
+    >
+      <View style={styles.statIcon}>
+        <MaterialCommunityIcons name={icon} size={24} color={C.blue} />
+      </View>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statDetail}>{detail}</Text>
+    </Pressable>
+  );
+}
+
+function ActivityRow({ item, onPress }: { item: ActivityItem; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${item.name}: ${item.status}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.activityRow, pressed && styles.cardPressed]}
+    >
+      <View style={styles.activityIcon}>
+        <MaterialCommunityIcons
+          name={item.kind === 'file' ? 'file-document-outline' : 'link-variant'}
+          size={20}
+          color={C.blue}
+        />
+      </View>
+      <View style={styles.activityCopy}>
+        <Text style={styles.activityName} numberOfLines={1}>
+          {item.name}
+        </Text>
+        <Text style={styles.activityTime}>{item.time}</Text>
+      </View>
+      <StatusChip status={item.status} />
+    </Pressable>
+  );
+}
+
+function QuickAction({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [styles.quickAction, pressed && styles.quickActionPressed]}
+    >
+      <MaterialCommunityIcons name={icon} size={20} color={C.blue} />
+      <Text style={styles.quickActionText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityState={{ checked: on }}
+      accessibilityLabel="Real-time protection"
+      onPress={onToggle}
+      hitSlop={8}
+      style={[styles.toggleTrack, on ? styles.toggleTrackOn : styles.toggleTrackOff]}
+    >
+      <View style={styles.toggleThumb} />
+    </Pressable>
   );
 }
 
@@ -99,10 +304,18 @@ type SecurityScannerWelcomeScreenProps = {
    * button falls back to the honest loading + confirmation states.
    */
   onGetStarted?: () => void;
+  /**
+   * Optional navigation hook for the security-overview dashboard band.
+   * Receives one of the NavTarget ids ("scan-history", "quarantine", …).
+   * When omitted, dashboard navigation falls back to an honest inline
+   * notice instead of pretending a route change happened.
+   */
+  onNavigate?: (target: NavTarget) => void;
 };
 
 export default function SecurityScannerWelcomeScreen({
   onGetStarted,
+  onNavigate,
 }: SecurityScannerWelcomeScreenProps) {
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
@@ -113,10 +326,28 @@ export default function SecurityScannerWelcomeScreen({
   const [buttonFocused, setButtonFocused] = React.useState(false);
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Security-overview dashboard state: the period filter drives the stat
+  // cards and the recent-activity list; the refresh and the protection
+  // toggle keep honest local feedback; navNotice is the fallback shown when
+  // no onNavigate prop is connected (the Expo app).
+  const [period, setPeriod] = React.useState<Period>('today');
+  const [refreshing, setRefreshing] = React.useState(false);
+  const [lastUpdated, setLastUpdated] = React.useState('2 min ago');
+  const [liveProtection, setLiveProtection] = React.useState(true);
+  const [navNotice, setNavNotice] = React.useState<string | null>(null);
+  const refreshTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   React.useEffect(() => {
     return () => {
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current);
+      }
+      if (refreshTimerRef.current !== null) {
+        clearTimeout(refreshTimerRef.current);
+      }
+      if (navTimerRef.current !== null) {
+        clearTimeout(navTimerRef.current);
       }
     };
   }, []);
@@ -137,6 +368,37 @@ export default function SecurityScannerWelcomeScreen({
     // confirmation state — the app must never pretend a step happened.
     setGetStartedState('loading');
     timerRef.current = setTimeout(() => setGetStartedState('done'), 1200);
+  };
+
+  const snapshot = OVERVIEW[period];
+
+  const handleNavigate = (target: NavTarget) => {
+    if (onNavigate) {
+      onNavigate(target);
+      return;
+    }
+    // No navigator connected (the Expo app yet): say so instead of
+    // pretending the tap went somewhere.
+    setNavNotice("Routing isn't connected in this build yet — it works in the web preview.");
+    if (navTimerRef.current !== null) {
+      clearTimeout(navTimerRef.current);
+    }
+    navTimerRef.current = setTimeout(() => setNavNotice(null), 2800);
+  };
+
+  const handleRefresh = () => {
+    if (refreshing) {
+      return;
+    }
+    setRefreshing(true);
+    refreshTimerRef.current = setTimeout(() => {
+      setRefreshing(false);
+      setLastUpdated('just now');
+    }, 900);
+  };
+
+  const handleToggleProtection = () => {
+    setLiveProtection((prev) => !prev);
   };
 
   return (
@@ -245,6 +507,228 @@ export default function SecurityScannerWelcomeScreen({
           <View style={isWide ? styles.rightColumn : styles.mobileIllustration}>
             <SecurityIllustration />
           </View>
+        </View>
+
+        <View style={[styles.dashboard, isWide && styles.dashboardWide]}>
+          <View style={styles.dashHeader}>
+            <View style={styles.dashHeaderText}>
+              <Text style={styles.dashTitle}>Security overview</Text>
+              <Text style={styles.dashSubtitle}>
+                Scans, threats and protection on this device.
+              </Text>
+            </View>
+            <View style={styles.dashControls}>
+              <View style={styles.segmented} accessibilityRole="tablist">
+                {PERIODS.map((p) => {
+                  const active = period === p.id;
+                  return (
+                    <Pressable
+                      key={p.id}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={`Show ${p.label.toLowerCase()}`}
+                      onPress={() => setPeriod(p.id)}
+                      style={({ pressed }) => [
+                        styles.segment,
+                        active && styles.segmentActive,
+                        pressed && !active && styles.segmentPressed,
+                      ]}
+                    >
+                      <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
+                        {p.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Refresh overview"
+                accessibilityState={{ busy: refreshing }}
+                onPress={handleRefresh}
+                disabled={refreshing}
+                style={({ pressed }) => [styles.refreshButton, pressed && styles.cardPressed]}
+              >
+                {refreshing ? (
+                  <ActivityIndicator size="small" color={C.blue} />
+                ) : (
+                  <MaterialCommunityIcons name="refresh" size={20} color={C.blue} />
+                )}
+              </Pressable>
+            </View>
+          </View>
+          <Text style={styles.updatedText}>Updated {lastUpdated}</Text>
+
+          <View style={styles.statGrid}>
+            <StatCard
+              icon="magnify"
+              value={String(snapshot.scans)}
+              label="Scans completed"
+              detail={snapshot.scansDelta}
+              narrow={!isWide}
+              onPress={() => handleNavigate('scan-history')}
+            />
+            <StatCard
+              icon="shield-alert-outline"
+              value={String(snapshot.threats)}
+              label="Threats blocked"
+              detail={snapshot.threatsDetail}
+              narrow={!isWide}
+              onPress={() => handleNavigate('threat-information')}
+            />
+            <StatCard
+              icon="link-variant"
+              value={String(snapshot.links)}
+              label="Links checked"
+              detail={snapshot.linksDetail}
+              narrow={!isWide}
+              onPress={() => handleNavigate('website-link')}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Scans remaining: ${QUOTA.total - QUOTA.used} of ${QUOTA.total}`}
+              onPress={() => handleNavigate('settings')}
+              style={({ pressed }) => [
+                styles.statCard,
+                !isWide && styles.statCardNarrow,
+                pressed && styles.cardPressed,
+              ]}
+            >
+              <View style={styles.statIcon}>
+                <MaterialCommunityIcons name="gauge" size={24} color={C.blue} />
+              </View>
+              <Text style={styles.statValue}>{QUOTA.total - QUOTA.used}</Text>
+              <Text style={styles.statLabel}>Scans remaining</Text>
+              <View style={styles.quotaTrack}>
+                <View
+                  style={[
+                    styles.quotaFill,
+                    { width: `${Math.round((QUOTA.used / QUOTA.total) * 100)}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.statDetail}>
+                {QUOTA.used} of {QUOTA.total} used this month
+              </Text>
+            </Pressable>
+          </View>
+
+          <View style={[styles.dashBottom, isWide && styles.dashBottomWide]}>
+            <View style={[styles.dashCard, styles.recentCard]}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>Recent activity</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="View all scans"
+                  onPress={() => handleNavigate('scan-history')}
+                  style={({ pressed }) => [styles.cardLinkHit, pressed && styles.cardPressed]}
+                >
+                  <Text style={styles.cardLink}>View all</Text>
+                </Pressable>
+              </View>
+              <View style={styles.activityList}>
+                {snapshot.recent.map((item) => (
+                  <ActivityRow
+                    key={item.id}
+                    item={item}
+                    onPress={() => handleNavigate('scan-history')}
+                  />
+                ))}
+              </View>
+            </View>
+
+            <View style={[styles.dashCard, styles.protectionCard]}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>Protection</Text>
+              </View>
+
+              <View style={styles.protectionRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Real-time protection settings"
+                  onPress={() => handleNavigate('real-time-protection')}
+                  style={({ pressed }) => [
+                    styles.protectionRowMain,
+                    pressed && styles.cardPressed,
+                  ]}
+                >
+                  <View style={styles.activityIcon}>
+                    <MaterialCommunityIcons name="shield-check-outline" size={20} color={C.blue} />
+                  </View>
+                  <View style={styles.activityCopy}>
+                    <Text style={styles.protectionRowTitle}>Real-time protection</Text>
+                    <Text style={styles.protectionRowSub}>
+                      {liveProtection
+                        ? 'Downloads and links are checked instantly.'
+                        : 'Paused — new downloads are not checked.'}
+                    </Text>
+                  </View>
+                </Pressable>
+                <Toggle on={liveProtection} onToggle={handleToggleProtection} />
+              </View>
+
+              <View style={styles.rowDivider} />
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Privacy audit: 2 permissions need review"
+                onPress={() => handleNavigate('privacy-audit')}
+                style={({ pressed }) => [styles.protectionRow, pressed && styles.cardPressed]}
+              >
+                <View style={styles.activityIcon}>
+                  <MaterialCommunityIcons name="clipboard-check-outline" size={20} color={C.blue} />
+                </View>
+                <View style={styles.activityCopy}>
+                  <Text style={styles.protectionRowTitle}>Privacy audit</Text>
+                  <Text style={styles.protectionRowSub}>2 app permissions need review.</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color="#9AAAC4" />
+              </Pressable>
+
+              <View style={styles.rowDivider} />
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Last full scan details"
+                onPress={() => handleNavigate('scan-history')}
+                style={({ pressed }) => [styles.protectionRow, pressed && styles.cardPressed]}
+              >
+                <View style={styles.activityIcon}>
+                  <MaterialCommunityIcons name="history" size={20} color={C.blue} />
+                </View>
+                <View style={styles.activityCopy}>
+                  <Text style={styles.protectionRowTitle}>Last full scan</Text>
+                  <Text style={styles.protectionRowSub}>Today at 09:41 · No threats found.</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color="#9AAAC4" />
+              </Pressable>
+
+              <View style={styles.quickActions}>
+                <QuickAction
+                  icon="magnify"
+                  label="Scan files"
+                  onPress={() => handleNavigate('file-selection')}
+                />
+                <QuickAction
+                  icon="link-variant"
+                  label="Check a link"
+                  onPress={() => handleNavigate('website-link')}
+                />
+                <QuickAction
+                  icon="lock"
+                  label="Quarantine"
+                  onPress={() => handleNavigate('quarantine')}
+                />
+              </View>
+            </View>
+          </View>
+
+          {navNotice && (
+            <View style={styles.navNotice} accessibilityRole="alert">
+              <MaterialCommunityIcons name="information-outline" size={18} color={C.blue} />
+              <Text style={styles.navNoticeText}>{navNotice}</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -638,5 +1122,362 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#A5C9FA',
     transform: [{ rotate: '70deg' }],
+  },
+  dashboard: {
+    width: '100%',
+    marginTop: 54,
+    backgroundColor: C.white,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E3ECF8',
+    padding: 22,
+    shadowColor: '#7EA7DC',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 4,
+  },
+  dashboardWide: {
+    padding: 28,
+  },
+  dashHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 14,
+  },
+  dashHeaderText: {
+    flexShrink: 1,
+    minWidth: 220,
+  },
+  dashTitle: {
+    color: C.navy,
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  dashSubtitle: {
+    color: C.muted,
+    fontSize: 15,
+    marginTop: 4,
+  },
+  dashControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  segmented: {
+    flexDirection: 'row',
+    backgroundColor: '#EEF4FC',
+    borderRadius: 12,
+    padding: 4,
+    gap: 2,
+  },
+  segment: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 9,
+  },
+  segmentActive: {
+    backgroundColor: C.blue,
+    shadowColor: C.blue,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  segmentPressed: {
+    opacity: 0.7,
+  },
+  segmentText: {
+    color: C.muted,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  segmentTextActive: {
+    color: C.white,
+  },
+  refreshButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#EEF4FC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  updatedText: {
+    color: '#8A9BB5',
+    fontSize: 12,
+    marginTop: 10,
+  },
+  statGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+    marginTop: 16,
+  },
+  statCard: {
+    flexGrow: 1,
+    flexBasis: '23%',
+    minWidth: 150,
+    backgroundColor: '#FAFCFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E3ECF8',
+    padding: 16,
+  },
+  statCardNarrow: {
+    flexBasis: '47%',
+  },
+  cardPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.995 }],
+  },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: C.blueLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  statValue: {
+    color: C.navy,
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  statLabel: {
+    color: C.text,
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  statDetail: {
+    color: C.muted,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  quotaTrack: {
+    height: 6,
+    borderRadius: 4,
+    backgroundColor: '#E3ECF8',
+    marginTop: 10,
+    marginBottom: 2,
+    overflow: 'hidden',
+  },
+  quotaFill: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: C.blue,
+  },
+  dashBottom: {
+    gap: 14,
+    marginTop: 14,
+  },
+  dashBottomWide: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  dashCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E3ECF8',
+    backgroundColor: '#FAFCFF',
+    padding: 18,
+  },
+  recentCard: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: '58%',
+  },
+  protectionCard: {
+    flexGrow: 1,
+    flexBasis: '38%',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  cardTitle: {
+    color: C.text,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  cardLinkHit: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  cardLink: {
+    color: C.blue,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  activityList: {
+    gap: 4,
+  },
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+  },
+  activityIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    backgroundColor: C.blueLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  activityCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  activityName: {
+    color: C.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  activityTime: {
+    color: C.muted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  chipClean: {
+    backgroundColor: '#E1F7EE',
+  },
+  chipThreat: {
+    backgroundColor: '#FDE8E8',
+  },
+  chipScanning: {
+    backgroundColor: '#FFF3DC',
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  chipTextClean: {
+    color: '#1E9E6F',
+  },
+  chipTextThreat: {
+    color: '#D64545',
+  },
+  chipTextScanning: {
+    color: '#C77F0A',
+  },
+  protectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+  },
+  protectionRowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minWidth: 0,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+  },
+  protectionRowTitle: {
+    color: C.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  protectionRowSub: {
+    color: C.muted,
+    fontSize: 13,
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  rowDivider: {
+    height: 1,
+    backgroundColor: '#EAF1FA',
+    marginVertical: 2,
+  },
+  toggleTrack: {
+    width: 52,
+    height: 30,
+    borderRadius: 16,
+    padding: 3,
+  },
+  toggleTrackOn: {
+    backgroundColor: C.green,
+    alignItems: 'flex-end',
+  },
+  toggleTrackOff: {
+    backgroundColor: '#C9D6E8',
+    alignItems: 'flex-start',
+  },
+  toggleThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: C.white,
+    shadowColor: '#3A4E6B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 16,
+  },
+  quickAction: {
+    flexGrow: 1,
+    flexBasis: '30%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 46,
+    borderRadius: 12,
+    backgroundColor: C.blueLight,
+    paddingHorizontal: 12,
+  },
+  quickActionPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.98 }],
+  },
+  quickActionText: {
+    color: '#0F62D9',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  navNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+    backgroundColor: C.blueLight,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  navNoticeText: {
+    color: '#3B5B8C',
+    fontSize: 13,
+    flex: 1,
   },
 });

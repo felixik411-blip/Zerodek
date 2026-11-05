@@ -12,24 +12,50 @@ import { webInitialMetrics } from '@/rn-web/webSafeAreaMetrics';
 const loadScreen = () => import('./SecurityScannerWelcomeScreen');
 
 /**
+ * Route map for the security-overview dashboard band's onNavigate targets.
+ * Trailing slashes on purpose: the preview proxy 301-redirects extension-less
+ * paths, and a redirect on the router's RSC payload fetch makes the soft
+ * navigation fall back to a full page load. Pushing the exact URL keeps the
+ * client-side transition seamless.
+ */
+const ROUTES: Record<string, string> = {
+  'scan-history': '/scan-history/',
+  'threat-information': '/threat-information/',
+  'website-link': '/website-link/',
+  'file-selection': '/file-selection/',
+  quarantine: '/quarantine/',
+  settings: '/settings/',
+  'real-time-protection': '/real-time-protection/',
+  'privacy-audit': '/privacy-audit/',
+  dashboard: '/dashboard/',
+};
+
+/**
  * Renders the React Native welcome screen in the browser via
  * react-native-web.
  *
- * "Get started" navigates to the real next screen (the dashboard). It is
- * passed as the optional prop the hand-off exposes, so the React Native
- * component itself stays portable — in the Expo app (no navigator wired yet)
- * it keeps the honest loading + confirmation states.
+ * "Get started" navigates to the real next screen (the dashboard), and the
+ * security-overview band's stat cards / quick actions / protection rows
+ * navigate through the optional onNavigate prop — so the React Native
+ * component itself stays portable: in the Expo app (no navigator wired yet)
+ * both fall back to the honest loading / confirmation / inline-notice states.
  */
 export default function WelcomePreview() {
   const router = useRouter();
 
   const handleGetStarted = React.useCallback(() => {
-    // Trailing slash on purpose: the preview proxy 301-redirects /dashboard to
-    // /dashboard/, and a redirect on the router's RSC payload fetch makes the
-    // soft navigation fall back to a full page load. Pushing the exact URL
-    // keeps the client-side transition seamless.
     router.push('/dashboard/');
   }, [router]);
+
+  const handleNavigate = React.useCallback(
+    (target: string) => {
+      const route = ROUTES[target];
+      if (route) {
+        router.push(route);
+      }
+    },
+    [router],
+  );
 
   return (
     <div
@@ -44,7 +70,7 @@ export default function WelcomePreview() {
       <SafeAreaProvider initialMetrics={webInitialMetrics} style={{ flex: 1 }}>
         <ScreenLoader
           load={loadScreen}
-          screenProps={{ onGetStarted: handleGetStarted }}
+          screenProps={{ onGetStarted: handleGetStarted, onNavigate: handleNavigate }}
         />
       </SafeAreaProvider>
     </div>
