@@ -1,0 +1,478 @@
+    60→| `SecurityScannerFileSelectionScreen.tsx` | Screen 3: file selection (byte-identical to the hand-off) |
+    61→| `SecurityScannerScanProgressScreen.tsx` | Screen 4: scan progress (byte-identical to the hand-off) |
+    62→| `SecurityScannerResultScreen.tsx` | Screen 5: scan result (byte-identical to the hand-off) |
+    63→| `WebsiteLinkScreen.tsx` | Screen 6: website link check (byte-identical to the hand-off) |
+    64→| `LinkScanResultScreen.tsx` | Screen 7: link scan result (byte-identical to the hand-off) |
+    65→| `QuarantineScreen.tsx` | Screen 8: quarantined files (byte-identical to the hand-off) |
+    66→| `QuarantineDetailsScreen.tsx` | Screen 9: quarantined file details (byte-identical to the hand-off) |
+    67→| `ScanHistoryScreen.tsx` | Screen 10: scan history (byte-identical to the hand-off) |
+    68→| `SettingsScreen.tsx` | Screen 11: settings (byte-identical to the hand-off) |
+    69→| `HelpAboutScreen.tsx` | Screen 12: help & about (authored to the brief in `12.md`) |
+    70→| `AdminSignInScreen.tsx` | Screen 13: admin sign-in (authored to the brief in `13.md`) |
+    71→| `AdminDashboardScreen.tsx` | Screen 14: admin dashboard (byte-identical to the hand-off in `14.md`) |
+    72→| `UserManagementScreen.tsx` | Screen 15: user management (byte-identical to the hand-off in `15.md`) |
+    73→| `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`, Feather `shield-check` → `shield`), imported first in `App.tsx` |
+    74→| `App.tsx` | Renders the welcome screen (swap to preview any of the fifteen screens) |
+    75→| `index.ts` | Expo entry point (`registerRootComponent`) |
+    76→| `app.json` | Expo app configuration |
+    77→| `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`, `expo-clipboard`, `lucide-react-native`, `react-native-svg`) |
+    78→
+    79→## Dashboard scope
+    80→
+    81→**Home (unchanged from the hand-off):** dashboard UI with URL input, notices,
+    82→sidebar highlighting, sample scan table.
+    83→
+    84→**New sub-screens** (built to the product decisions doc, §3 and §10B screens 8/10/11):
+    85→
+    86→- **History** — chronological list of file scans and link checks, "All / Files /
+    87→  Links" filters, status icons + words (never colour alone), empty state, and a
+    88→  notice if a record's details aren't saved yet.
+    89→- **Quarantine** — isolated-items list with lock icons, quarantine date, and the
+    90→  auto-purge date computed from the configurable retention period (30-day
+    91→  default). Restore and Delete demonstrate the confirmation-first pattern:
+    92→  permanent deletion asks first, then reports honestly that the quarantine
+    93→  service isn't connected in this preview yet — nothing is faked.
+    94→- **Settings & privacy** — grouped Privacy / Quarantine retention / App
+    95→  information sections. Files-stay-on-your-phone policy, retention chooser
+    96→  (14/30/90 days) that propagates to the Quarantine screen, expiry warning
+    97→  toggle. **No cloud-upload controls** — per the rulebook, they must not appear
+    98→  until a real cloud-analysis feature with a consent flow exists.
+    99→- **Mobile bottom navigation** — on narrow layouts the sidebar is hidden, so a
+   100→  bottom tab bar (Home / History / Quarantine / Settings, with the badge) was
+   101→  added, as required by the design brief §10A "main mobile navigation".
+   102→
+   103→**Still honest by design:** no real malware scanning or URL reputation checking
+   104→happens — actions that need the scanner backend or native quarantine service
+   105→show plain-language notices instead of pretending to succeed. The retention and
+   106→notification controls work locally but are not persisted yet.
+   107→
+   108→- The sidebar appears on wide layouts (width ≥ 1100); on narrow layouts the
+   109→  brand moves into the top bar and navigation moves to the bottom tab bar.
+   110→- The scan table contains sample data matching the reference design.
+   111→
+   112→## File-selection screen (screen 3)
+   113→
+   114→Byte-identical to the hand-off. What it does:
+   115→
+   116→- **Tabs** — Recent files / Documents / Images / Downloads, each with its own
+   117→  sample rows; switching tabs clears the selection.
+   118→- **Row selection** — tapping a row highlights it and shows the radio dot plus
+   119→  a "Selected: <name>" chip.
+   120→- **Browse device** — opens the native document picker (`expo-document-picker`,
+   121→  already added to `package.json`; `npx expo install --fix` will align it).
+   122→  Picking a file selects it and shows a confirmation message.
+   123→- **Scan selected file** — with a selection it reports that the scanning
+   124→  engine isn't connected yet ("Connect your scanning engine to perform an
+   125→  actual threat scan."); with none it asks you to pick a file first. Nothing
+   126→  is faked, per the product decisions doc.
+   127→- **Cancel / Back to Home** — sidebar pages and Home are still placeholders in
+   128→  this component; the hand-off shows a plain-language notice instead.
+   129→- **Responsive** — sidebar on layouts ≥ 1000px wide; below that the brand
+   130→  moves into the top bar.
+   131→
+   132→## Scan-progress screen (screen 4)
+   133→
+   134→Byte-identical to the hand-off. What it does:
+   135→
+   136→- **Demo progress** — starts at 48% and animates to 100% (2% every 350 ms).
+   137→  The hand-off marks it clearly: placeholder UI, not a real malware scan.
+   138→- **States** — "Checking this file…" while running, "Scan complete" at 100%
+   139→  (button flips to a disabled "Finished"), and "Scan cancelled" after Cancel
+   140→  (button flips to a disabled "Cancelled").
+   141→- **File header** — takes optional `fileName` / `fileType` / `fileSize` props
+   142→  (defaults: `Project_Proposal.pdf`, PDF document, 2.4 MB). The web preview
+   143→  passes the file chosen on the file-selection screen through query params.
+   144→- **Callbacks** — `onCancel`, `onBackHome`, `onScanComplete` are optional;
+   145→  wire them to your navigator when it exists. In the web preview,
+   146→  `onBackHome` returns to the dashboard.
+   147→- **Responsive** — sidebar on layouts ≥ 1000px wide; below that the brand
+   148→  moves into the top bar.
+   149→
+   150→## Scan-result screen (screen 5)
+   151→
+   152→Byte-identical to the hand-off. What it does:
+   153→
+   154→- **Result card** — "Threat found" banner (sample result content, as the
+   155→  hand-off notes: only show it when the scanner really detected a threat),
+   156→  file summary, scan date/type/result metadata, "What happened?" explainer,
+   157→  and the quarantined banner.
+   158→- **Delete permanently** — asks for confirmation first (`Alert.alert` on
+   159→  native; the web preview bridges it to a browser confirm dialog). On
+   160→  confirm the card flips to the hand-off's "File deleted" state; the
+   161→  `onDeletePermanently` callback is where real file storage removal goes.
+   162→- **View quarantine** — `onViewQuarantine` callback; the web preview
+   163→  deep-links to the dashboard's Quarantine sub-screen.
+   164→- **Scan another file** — `onScanAnother` callback; the web preview returns
+   165→  to the file-selection screen.
+   166→- **File details** — configurable via `fileName` / `fileType` / `fileSize` /
+   167→  `scanDate` / `scanTime` props (defaults match the hand-off sample). The
+   168→  web preview passes the scanned file's metadata through query params.
+   169→- **Responsive** — two-column layout (result + side cards) on wide screens;
+   170→  stacked single column, stacked action buttons and stacked metadata below
+   171→  1000px.
+   172→
+   173→## Website-link screen (screen 6)
+   174→
+   175→Byte-identical to the hand-off. What it does:
+   176→
+   177→- **URL input** — inline validation (HTTP/HTTPS + hostname with a dot), the
+   178→  error shows only once you've attempted a check (or while editing after one),
+   179→  and Enter/submits run the same validation.
+   180→- **Paste** — reads the device clipboard via `expo-clipboard` (already in
+   181→  `package.json`; `npx expo install --fix` will align it). On Android/iOS this
+   182→  is the native clipboard; browsers may show a one-time permission prompt and
+   183→  can deny reads on insecure origins.
+   184→- **Example chips** — fill the input for UI testing; the hand-off notes they
+   185→  are not claims about those websites' safety.
+   186→- **Check link** — calls `onCheckLink(url)` with the validated URL. The
+   187→  hand-off deliberately does NOT decide the result: connect your real URL
+   188→  reputation/scanning service there. In the web preview, a valid check now
+   189→  forwards the URL and the live check timestamp to the link-scan-result
+   190→  screen (screen 7); an invalid one shows the validation error.
+   191→- **Back to Home** — `onBackHome` callback; the web preview returns to the
+   192→  dashboard, and the dashboard's "Check a link" card routes here.
+   193→- **Responsive** — sidebar on layouts ≥ 900px wide; below that the brand
+   194→  moves into the top bar.
+   195→
+   196→## Link-scan-result screen (screen 7)
+   197→
+   198→Byte-identical to the hand-off. What it does:
+   199→
+   200→- **Verdict card** — "Likely dangerous" banner and recommendation copy are the
+   201→  hand-off's sample result; connect a real URL reputation service to drive the
+   202→  actual verdict, as the hand-off notes.
+   203→- **Link actions** — Copy writes the URL to the clipboard via `expo-clipboard`
+   204→  and flips to "Copied" (with an `Alert.alert` confirmation on native; the web
+   205→  preview bridges it to a browser dialog). The external-link button shows a
+   206→  caution dialog and intentionally does NOT open the flagged URL.
+   207→- **What we checked / Scan details** — checklist and metadata grid, including
+   208→  the checked URL and the `checkedAt` timestamp.
+   209→- **Props** — `url` / `checkedAt` are optional (defaults match the hand-off
+   210→  sample). The web preview passes the URL typed on screen 6 through query
+   211→  params, plus a live "Nov 2, 2026  •  10:24 AM"-style timestamp.
+   212→- **Callbacks** — `onBackHome` and `onCheckAnotherLink` are optional; in the
+   213→  web preview they return to the dashboard and to the website-link screen.
+   214→- **Responsive** — sidebar on layouts ≥ 900px wide; the top grid, details grid
+   215→  and action buttons stack below that.
+   216→
+   217→## Quarantined-files screen (screen 8)
+   218→
+   219→Byte-identical to the hand-off. What it does:
+   220→
+   221→- **List** — the two sample quarantined files from the hand-off, with type
+   222→  icons, quarantine date/time, and colour + word status ("Threat found" red /
+   223→  "Suspicious" orange — never colour alone). The sidebar badge shows the live
+   224→  count and updates as rows are removed.
+   225→- **Search** — filters by name, description, type, status and reason; an
+   226→  x-circle button clears the field; an empty result shows the hand-off's "No
+   227→  matching files" state with its own Clear-search button.
+   228→- **View details** — `onViewDetails(file)` callback (falls back to an
+   229→  `Alert.alert` summary when the callback isn't provided). In the web preview
+   230→  it navigates to the quarantined-file-details screen (screen 9), whose
+   231→  hand-off shows the same sample file; connect your real details/route here
+   232→  per file if you need per-row content.
+   233→- **Three-dot menu** — Restore file and Delete permanently, both asking for
+   234→  confirmation first (`Alert.alert` on native; the web preview bridges it to
+   235→  a browser dialog). Restore shows the hand-off's honest "no real file was
+   236→  restored" follow-up notice; delete removes the row from the demo list. Per
+   237→  the hand-off notes, connect a native quarantine service before treating
+   238→  these as real security operations.
+   239→- **Scan a file** — `onScanFile` callback; the web preview goes to the
+   240→  file-selection screen.
+   241→- **Responsive** — sidebar on layouts ≥ 950px wide; below that the table
+   242→  columns stack per-row and the search box moves under the count.
+   243→
+   244→## Quarantined-file-details screen (screen 9)
+   245→
+   246→Byte-identical to the hand-off. What it does:
+   247→
+   248→- **Summary** — sample file header (Project_Proposal.pdf, PDF, 2.4 MB — the
+   249→  hand-off's own sample data) with the red "Quarantined" banner, plus the
+   250→  quarantined-on date, reason and current-state metadata card.
+   251→- **Scan before restoring** — "Scan and check" shows the hand-off's
+   252→  placeholder `Alert.alert` ("connect your scanner service..."); connect a
+   253→  real scan service and only offer restore per your security policy.
+   254→- **Delete permanently** — confirmation dialog first (`Alert.alert` on
+   255→  native; the web preview bridges it to a browser dialog), then the
+   256→  hand-off's honest "demo action" notice — no real file is deleted until
+   257→  your native quarantine service is connected.
+   258→- **Scan history** — the initial-scan entry with the "Threat found" pill.
+   259→- **Navigation** — `onBack` / `onOpenQuarantine` return to the quarantined
+   260→  files list (screen 8), `onHome` to the dashboard, and `onHistory` /
+   261→  `onSettings` deep-link into the dashboard's internal History / Settings
+   262→  sub-screens via the `?view=` bridge.
+   263→- **Dependencies** — this hand-off uses `lucide-react-native` with
+   264→  `react-native-svg` (already in `package.json`; `npx expo install --fix`
+   265→  aligns versions). On web, react-native-svg needs `@react-native/assets-registry`.
+   266→- **Responsive** — sidebar always rendered by the hand-off (desktop-first,
+   267→  per its notes); the web preview's glue CSS hides it below 900px and
+   268→  relaxes the hand-off's desktop min-widths so phones don't overflow.
+   269→
+   270→## Scan-history screen (screen 10)
+   271→
+   272→Byte-identical to the hand-off. What it does:
+   273→
+   274→- **Records** — the eight sample scans from the hand-off (files + links,
+   275→  Oct 26–30), each with date/time, item icon, size subtitle, and a colour +
+   276→  word result pill ("Threat found", "No known threat", "Likely dangerous",
+   277→  "Needs your review", "Could not decide" — never colour alone).
+   278→- **Filters and search** — All / Files / Links chips combine with the search
+   279→  field (matches item, type, result and detail); an empty result shows the
+   280→  hand-off's empty state with a Clear-filters button.
+   281→- **Clickable rows** — the hand-off's `openRecord()` is a console.log stub;
+   282→  the hand-off notes say to connect rows to the file/link result screens
+   283→  "when those routes are ready". In the web preview they are, so the glue
+   284→  bridge routes File rows to the scan-result screen (screen 5, carrying
+   285→  name/size/date/time) and Link rows to the link-scan-result screen
+   286→  (screen 7, carrying URL + checked-at timestamp).
+   287→- **Sidebar** — the hand-off's `navigate()` is also a stub; the glue bridge
+   288→  routes Home to the dashboard, Quarantine to the quarantined-files screen
+   289→  (screen 8) and Settings into the dashboard's internal Settings view.
+   290→- **Dependencies** — uses `Ionicons` from `@expo/vector-icons` (already in
+   291→  `package.json`). On web, the Ionicons font file and @font-face rule ship
+   292→  with the preview app.
+   293→- **Responsive** — the sidebar hides below 900px (hand-off behaviour), the
+   294→  table becomes stacked cards, and a menu placeholder appears in the top
+   295→  bar; connect it to your navigation drawer when one exists.
+   296→
+   297→## Settings screen (screen 11)
+   298→
+   299→Byte-identical to the hand-off. What it does:
+   300→
+   301→- **Notifications** — the "Enable notifications" switch is live local state
+   302→  (`notificationsEnabled`, on by default) with the hand-off's track colours.
+   303→- **Quarantine retention** — live local state (`retentionDays`, 30 by
+   304→  default) reflected in "Current retention period" and the auto-delete
+   305→  sentence. The hand-off wires the "Delete quarantined files" action to
+   306→  toggle the period 30 ↔ 14 as a placeholder demo; its own note says to
+   307→  connect that action to the app's real screens, so the web preview bridges
+   308→  it to the quarantined-files screen (screen 8), where deletion actually
+   309→  lives. In this package you may keep the demo toggle or replace the
+   310→  `onPress` with a call into your quarantine storage.
+   311→- **Sidebar** — Home, History, Quarantine (badge "2") and Settings (active).
+   312→  The hand-off renders the items without `onPress`; in the web preview a
+   313→  glue bridge routes them to the dashboard, scan-history (screen 10) and
+   314→  quarantined-files (screen 8) screens.
+   315→- **Placeholders by design** — "Learn more about our privacy", "Terms of
+   316→  service" and "Privacy policy" render as tappable rows with no navigation,
+   317→  exactly as the hand-off ships them.
+   318→- **Dependencies** — uses `lucide-react-native`, which requires
+   319→  `react-native-svg`; both are already in `package.json` (screen 9).
+   320→- **Responsive** — the sidebar shows at ≥900px; below that the hand-off
+   321→  renders a compact top bar. Note the hand-off keeps its root container in
+   322→  `flexDirection: "row"` at every width, so on narrow screens the top bar
+   323→  sits beside the content and the fixed 74/76px card indents squeeze the
+   324→  columns. The web preview compensates with glue-only CSS in
+   325→  `SettingsPreview.tsx` (stacked top bar and card rows); this package keeps
+   326→  the hand-off file byte-identical, so on a device it renders as written.
+   327→
+   328→## Help & About screen (screen 12)
+   329→
+   330→Authored to the implementation brief (`12.md`) — this hand-off defines
+   331→requirements and copy instead of shipping code, so the screen was written to
+   332→the app's shared design system. What it does:
+   333→
+   334→- **Search** — live case-insensitive filter over each topic's title,
+   335→  description and answer text, per the brief. No matches shows the compact
+   336→  empty state ("No help topics found." + a muted hint). It filters only the
+   337→  five local topics; no knowledge base is claimed.
+   338→- **Topics** — the five cards from the brief with their accent tiles (blue
+   339→  shield, green document, orange archive, purple link, teal lock). Tapping a
+   340→  card opens an in-screen detail panel (title + answer, paragraphs and
+   341→  labelled bullets) with a "Back to topics" control.
+   342→- **Sidebar** — Home, History, Quarantine (badge "2"), Settings and
+   343→  Help & About (active). The brief says to accept navigation callbacks as
+   344→  props, so the screen takes `onNavigate(destination)`; the web preview
+   345→  wires it to the dashboard, scan-history, quarantined-files and settings
+   346→  routes. In your Expo app pass your navigator's calls.
+   347→- **Footer card** — two columns split by a thin divider: App version 1.0.0,
+   348→  and "Need more help?" with the support email rendered blue and selectable
+   349→  (styled text, as the brief permits — no mailto navigation).
+   350→- **Dependencies** — `lucide-react-native` only (already in
+   351→  `package.json`); all icon names verified against the installed version,
+   352→  including the `History` and `HelpCircle` export aliases.
+   353→- **Responsive** — authored correctly at both sizes: sidebar at ≥900px, and
+   354→  below that the root switches to a column with a compact top bar, stacked
+   355→  footer and 16px gutters. Unlike screen 11, no glue CSS is needed in the
+   356→  preview.
+   357→
+   358→## Admin sign-in screen (screen 13)
+   359→
+   360→Authored to the implementation brief (`13.md`) — the brief defines
+   361→requirements, copy and design tokens instead of shipping code, so the screen
+   362→was written to spec. What it does:
+   363→
+   364→- **Two-column desktop layout** — pale-blue Admin Portal panel (46%: brand
+   365→  lockup with tagline, browser-window hero illustration composed from plain
+   366→  Views + lucide icons, "Admin Portal" copy, three feature rows from one
+   367→  typed array) beside a white panel holding the centred sign-in card
+   368→  (~554px, thin pale-blue border, 12px radius). A subtle divider separates
+   369→  the panels.
+   370→- **Form** — email/username and password fields with leading icons, 50px
+   371→  height, 7px radius, muted-blue placeholders; password visibility toggle
+   372→  (eye/eye-off); right-aligned "Forgot your password?" link; full-width
+   373→  "Sign in" button with arrow icon; pale-blue security notice strip with an
+   374→  info icon at the bottom of the card.
+   375→- **Validation & loading** — empty fields show concise inline errors
+   376→  ("Enter your email or username." / "Enter your password.") that clear as
+   377→  you type; the button shows a spinner + "Signing in…" and is disabled
+   378→  (with `busy` accessibility state) while the injected `onSignIn` callback
+   379→  runs; a rejected callback surfaces a concise inline error strip. The
+   380→  screen never fabricates a success state, exactly as the brief demands —
+   381→  reporting success is the real handler's job.
+   382→- **Integration points** — `onSignIn(credentials)` and `onForgotPassword()`
+   383→  are optional props; no credentials are stored and no recovery route is
+   384→  invented. The web preview wires sign-in to an honest "not connected in
+   385→  this preview" rejection (so the loading + error states can be exercised)
+   386→  and forgot-password to the existing Help & About screen (the app's
+   387→  support surface). In your Expo app pass your real handlers.
+   388→- **Dependencies** — `lucide-react-native` only (already in
+   389→  `package.json`); no new dependency and no remote image URL (the hero is a
+   390→  React Native composition of shapes and icons).
+   391→- **Responsive** — two columns at ≥900px; below that the panels stack
+   392→  vertically (intro on the pale background, card section in white) in a
+   393→  single scrollable view with no horizontal overflow. Tap-outside keyboard
+   394→  dismissal is included for mobile.
+   395→
+   396→## Admin dashboard screen (screen 14)
+   397→
+   398→Byte-identical to the code hand-off in `14.md`. What it does and how it is
+   399→wired:
+   400→
+   401→- **Desktop layout (≥1100px)** — navy sidebar (brand, six nav items,
+   402→  footer card), white top bar (menu, bell with red dot, AD admin account),
+   403→  and a dashboard page: heading with a period dropdown, five metric cards
+   404→  (Service Health / Total Scans / File Scans / Link Checks / Recent
+   405→  Errors), the Recent Activity table (7 sample rows with type and result
+   406→  pills), a Service Status panel (5 services, all Operational) and an
+   407→  Alerts panel (3 sample alerts).
+   408→- **Built-in interactions (from the hand-off)** — the period dropdown opens
+   409→  and selects Today / Last 7 days / Last 30 days / This year (label only,
+   410→  per the brief — it does not refetch metrics); every control gives inline
+   411→  feedback through a dismissable notice strip (nav without a route,
+   412→  bell, admin menu, activity rows, "View all").
+   413→- **Wired to the real app (glue, not in the hand-off)** — the web preview
+   414→  wraps the screen in a click-capture bridge: sidebar Dashboard / Scans /
+   415→  Quarantine / Settings / Help & Support route to the real dashboard,
+   416→  scan-history, quarantine, settings and help-about screens; activity rows
+   417→  and the Recent Activity "View all" route to scan-history. Sidebar clicks
+   418→  are told apart from the "Dashboard" page title via the sidebar's navy
+   419→  background colour. "Users" and the Alerts "View all" keep the hand-off's
+   420→  honest notices (no such screens exist).
+   421→- **Icon glyph alias** — the hand-off names the Feather icon
+   422→  `shield-check` (Service-Health metric), which does not exist in the
+   423→  Feather glyphmap (only `shield`/`shield-off`); `glyphPatches.ts` aliases
+   424→  it to `shield` without touching the byte-identical screen code.
+   425→- **Responsive** — below 1100px the sidebar disappears (mobile brand in
+   426→  the top bar), metrics wrap and the panels stack, per the hand-off. One
+   427→  web-preview glue rule (media query only, hand-off untouched): the
+   428→  activity table cannot shrink below its `numberOfLines={1}` contents, so
+   429→  on a 390px viewport the Result column was silently clipped — the panel
+   430→  now scrolls sideways instead, keeping every column reachable.
+   431→
+   432→## User-management screen (screen 15)
+   433→
+   434→Byte-identical to the code hand-off in `15.md`. What it does and how it is
+   435→wired:
+   436→
+   437→- **Desktop layout (≥900px)** — navy sidebar (brand, six nav items, System
+   438→  Healthy footer), white top bar (menu, bell with red dot, AD admin
+   439→  account), and a user-management page: heading with a people icon tile, a
+   440→  dismissable notice strip, a toolbar (search, status filter, Export), the
+   441→  users table (User / Status / Role / Joined On / Last Active / Actions,
+   442→  5 sample users with status + role pills), pagination footer, and an
+   443→  Audit Trail card (3 sample rows, "View all logs").
+   444→- **Built-in interactions (from the hand-off)** — live search across name,
+   445→  email and role with a "No users found" empty state; the status filter
+   446→  dropdown (All Statuses / Active / Disabled) filters the table; View
+   447→  opens a detail dialog (avatar, email, status/role/joined/last-active
+   448→  rows); the row ⋯ menu offers View details plus Disable account (red) or
+   449→  Re-enable account (green) guarded by a confirmation dialog; disabling
+   450→  and re-enabling actually flip the user's status pill in the table and
+   451→  fire a dismissable notice; Export CSV/JSON and every nav-without-a-route
+   452→  control show honest inline notices (the integration notes leave export
+   453→  as a connect-later point — no export service is faked).
+   454→- **Wired to the real app (glue, not in the hand-off)** — the web preview
+   455→  wraps the screen in a click-capture bridge: sidebar Dashboard / Scans /
+   456→  Quarantine / Settings / Help & Support route to the real dashboard,
+   457→  scan-history, quarantine, settings and help-about screens (matched by
+   458→  suffix against the sidebar's navy background, as in screen 14). "Users"
+   459→  is this screen itself, so it keeps the hand-off's honest notice.
+   460→- **Icon glyphs** — all 20 Ionicons names and the MaterialCommunityIcons
+   461→  `shield-check` used by this hand-off exist in the installed glyphmaps
+   462→  (verified programmatically), so no `glyphPatches.ts` alias is needed for
+   463→  this screen.
+   464→- **Responsive** — below 900px the hand-off's own `compact` mode collapses
+   465→  the sidebar to a 70px icon rail, stacks the toolbar, and keeps the tables
+   466→  at their 930/900px minimums inside horizontal ScrollViews, per the
+   467→  integration notes. The detail and confirmation dialogs fit a 390px
+   468→  viewport with 20px margins.
+   469→- **Web-preview glue (hand-off untouched)** — two rules in the preview
+   470→  wrapper only: (1) on desktop the tables' `width: "100%"` resolves
+   471→  against the horizontal ScrollView's shrink-wrapped content container, so
+   472→  the content container is stretched to the card's real width (the
+   473→  hand-off's `compact` breakpoint is respected below 900px); (2)
+   474→  react-native-web gives every relatively-positioned view a default
+   475→  z-index 0, which trapped the row dropdown (z-index 30) inside its own
+   476→  row's stacking context so later rows painted over it — while a row menu
+   477→  is open, the ancestors between the table card and the dropdown are
+   478→  neutralised so the dropdown renders above the rows below it.
+   479→
+   480→## Known notes
+   481→
+   482→- The hand-off references the icon name `file-archive`, which does not exist
+   483→  in the MaterialCommunityIcons glyphmap (7,448 names checked — the closest
+   484→  real glyph is `zip-box`). Without a fix the two ZIP rows render a "?"
+   485→  fallback glyph. `glyphPatches.ts` (imported first in `App.tsx`) aliases
+   486→  `file-archive` → `zip-box` at runtime so the intended archive icon renders,
+   487→  **without touching the byte-identical screen code**. If you'd rather change
+   488→  the design source, replace `'file-archive'` with `'zip-box'` in the screen
+   489→  and delete the patch file.
+   490→- The admin-dashboard hand-off (screen 14) names the Feather icon
+   491→  `shield-check`, which also does not exist in the Feather glyphmap (only
+   492→  `shield` / `shield-off`). `glyphPatches.ts` aliases it to `shield` the
+   493→  same way, again without touching the byte-identical screen code.
+   494→- Same situation on the scan-result screen: the hand-off uses `shield-minus`,
+   495→  which also does not exist in the glyphmap. `glyphPatches.ts` aliases it to
+   496→  the real minus-shield glyph `shield-remove` (Material Design Icons names
+   497→  "minus" "remove"), again without touching the byte-identical screen code.
+   498→- On Android/iOS `Alert.alert` is the real native dialog. react-native-web's
+   499→  `Alert` is a silent no-op, which the web preview bridges to a browser
+   500→  confirm dialog — not part of this Expo package.
+   501→
+   502→## Welcome screen: interactive & UI states (added during review)
+   503→
+   504→Per the design brief section 10A — "Show clear loading, empty, error, and
+   505→confirmation states where relevant":
+   506→
+   507→| State | Behaviour |
+   508→| --- | --- |
+   509→| Idle | Button: "Get started" with arrow icon (unchanged from hand-off) |
+   510→| Pressed / hover | Slight opacity + scale feedback (from the hand-off `Pressable` style) |
+   511→| Keyboard focus | Subtle scale + shadow emphasis, announced to screen readers |
+   512→| Loading | Spinner + "Getting started…", button disabled (`busy` accessibility state), double-tap safe |
+   513→| Confirmation | Calm blue card with a green check: "You're all set for now — the next step (scanner screen) isn't connected in this preview yet." Exposed as an `alert` role (aria-live) |
+   514→| Navigation (connected) | When the optional `onGetStarted` prop is passed, the loading state shows and the callback runs — the web preview wires it to the dashboard screen, so Get started goes there for real |
+   515→| Error / empty | Not applicable to a welcome screen — no fake errors are shown, per the honesty rules in the product decisions document |
+   516→
+   517→The added states keep the hand-off design system: one blue accent, green only
+   518→for positive results, plain-language text, and no unsupported claims.
+   519→
+   520→### Wiring Get started in the Expo app
+   521→
+   522→The component stays navigator-agnostic. When you add React Navigation (or
+   523→Expo Router), connect it like this:
+   524→
+   525→```tsx
+   526→<SecurityScannerWelcomeScreen onGetStarted={() => navigation.navigate('Dashboard')} />
+   527→```
+   528→
+   529→Until then, `App.tsx` renders the screen without the prop and the honest
+   530→loading + confirmation states apply (the `TODO` comment remains in the code).
+   531→
+   532→## Design system (from the product decisions, section 10)
+   533→
+   534→- Navy/charcoal base (`#1D3049`, `#17283E`), light surfaces (`#F8FAFD`), one blue accent (`#1877F2`).
+   535→- Green is used only for positive results, large tap targets, and plain-language text.
+   536→- Privacy message on screen: "Files stay on your phone by default."
+   537→

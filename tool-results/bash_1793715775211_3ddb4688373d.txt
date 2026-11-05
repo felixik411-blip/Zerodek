@@ -1,0 +1,954 @@
+commit e9cabe4a6db61295fd47699d091c32de3e8103c3
+Author: Z User <z@container>
+Date:   Tue Nov 3 13:52:58 2026 +0000
+
+    threat-information screen (16): byte-identical hand-off + admin-navigation bridge, add-indicator focus wiring, menu/row/picker stacking and wide-viewport clip glue
+
+diff --git a/download/security-scanner-expo.zip b/download/security-scanner-expo.zip
+index 8f99ad7..2b58738 100644
+Binary files a/download/security-scanner-expo.zip and b/download/security-scanner-expo.zip differ
+diff --git a/download/security-scanner-expo/README.md b/download/security-scanner-expo/README.md
+index 4b78d1a..a4e47ab 100644
+--- a/download/security-scanner-expo/README.md
++++ b/download/security-scanner-expo/README.md
+@@ -1,6 +1,6 @@
+-# Security Scanner — Screens 1–15 (Expo + React Native)
++# Security Scanner — Screens 1–16 (Expo + React Native)
+ 
+-The first fifteen screens of the Android security scanner:
++The first sixteen screens of the Android security scanner:
+ 
+ 1. **Welcome screen** — from the `SecurityScannerWelcomeScreen.tsx` design hand-off, plus the interactive and UI states added during review (see below), and "Get started" wired to the dashboard via an optional `onGetStarted` prop.
+ 2. **Dashboard screen** — from the `SecurityScannerDashboard.tsx` design hand-off. The Home screen content is unchanged from the hand-off; the sidebar now switches to three **real sub-screens** (History, Quarantine, Settings) built to the product decisions doc, instead of the hand-off's "not included yet" notices.
+@@ -70,8 +70,9 @@ Keep `import './glyphPatches';` as the first import in `App.tsx` (see
+ | `AdminSignInScreen.tsx` | Screen 13: admin sign-in (authored to the brief in `13.md`) |
+ | `AdminDashboardScreen.tsx` | Screen 14: admin dashboard (byte-identical to the hand-off in `14.md`) |
+ | `UserManagementScreen.tsx` | Screen 15: user management (byte-identical to the hand-off in `15.md`) |
++| `ThreatInformationScreen.tsx` | Screen 16: threat information management (byte-identical to the hand-off in `16.md`) |
+ | `glyphPatches.ts` | Icon glyph aliases (`file-archive` → `zip-box`, `shield-minus` → `shield-remove`, Feather `shield-check` → `shield`), imported first in `App.tsx` |
+-| `App.tsx` | Renders the welcome screen (swap to preview any of the fifteen screens) |
++| `App.tsx` | Renders the welcome screen (swap to preview any of the sixteen screens) |
+ | `index.ts` | Expo entry point (`registerRootComponent`) |
+ | `app.json` | Expo app configuration |
+ | `package.json` | Dependencies (Expo SDK 58 aligned, incl. `expo-document-picker`, `expo-clipboard`, `lucide-react-native`, `react-native-svg`) |
+@@ -477,6 +478,61 @@ wired:
+   is open, the ancestors between the table card and the dropdown are
+   neutralised so the dropdown renders above the rows below it.
+ 
++## Threat-information screen (screen 16)
++
++Byte-identical to the code hand-off in `16.md`. What it does and how it is
++wired:
++
++- **Desktop-style admin layout** — white top bar (menu, bell with red dot,
++  AD admin account), heading with a shield tile, a filter bar (search,
++  Type + Status dropdowns, "Add Indicator"), an indicators table card
++  (Indicator / Type / Source / Status / Date Added / Last Updated /
++  Actions — 12 sample indicators with type pills and status pills) with a
++  pagination footer (5 per page), an "Add Threat Indicator" form card on
++  the right (value, Type, Source, Status, submit), a Recent Activity card
++  (3 sample rows, "View all activity"), and a System Healthy footer.
++- **Built-in interactions (from the hand-off)** — live search across value,
++  source and type with a "No indicators found" empty state; the Type and
++  Status dropdowns filter the table (and reset to page 1); the add form
++  validates (missing value/type/source, duplicate detection) and prepends
++  the new indicator with today's dates; every row's ⋮ menu cycles the
++  status (Active → Pending → Blocked, stamping Last Updated), opens a
++  details dialog, or removes the row behind a "Remove indicator?"
++  confirmation; the table paginates with prev/next and page-number
++  buttons and a live "Showing x–y of z" counter. Notifications, the admin
++  account, the filter bar's "Add Indicator" placeholder and "View all
++  activity" show honest alerts instead of fake screens.
++- **Icon glyphs** — all 23 Ionicons names used by this hand-off exist in
++  the installed glyphmap (verified programmatically), so no
++  `glyphPatches.ts` alias is needed for this screen.
++- **Wired to the real app (glue, not in the hand-off)** — the web preview
++  wraps the screen in a click-capture bridge: the top-bar menu button —
++  the hand-off's own "Connect your admin drawer here." integration point —
++  routes to the admin dashboard screen (14), and the filter bar's "Add
++  Indicator" button scrolls to and focuses the form's Indicator Value
++  input instead of dead-ending in an alert (the form's own submit button,
++  which reads the same, is told apart by document order and passes
++  through). The hand-off's alert still fires for the menu button, as with
++  screens 14/15 (capture-phase bridge, bubble-phase notice). Everything
++  else stays inside the screen.
++- **Responsive** — the table's columns are fixed-width (824px total) and
++  scroll horizontally inside the card, per the hand-off; its own notes
++  recommend stacking the table and form for narrow phones.
++- **Web-preview glue (hand-off untouched)** — react-native-web gives every
++  View a default `z-index: 0` stacking context, which (a) let later rows
++  paint over an open row ⋮ menu, (b) let the Recent Activity card paint
++  over menus spilling past their card's bottom edge (raising the cards
++  alone cannot fix this — their z-index is trapped inside `mainRow`'s
++  context, so `mainRow` itself is raised while a menu is open), (c) let
++  later add-form picker wraps paint over an open options menu, and (d)
++  computed the table's horizontal ScrollView `overflow-y: hidden`, which
++  clipped a bottom row's menu at the card's edge — released at ≥1240px
++  viewports, where the table never needs the horizontal scroll (below
++  that it clips exactly as it does inside a native horizontal ScrollView).
++  One more rule re-raises the filter bar above the raised `mainRow` while
++  its own dropdown is open, preserving the hand-off's native stacking when
++  two menus are open at once.
++
+ ## Known notes
+ 
+ - The hand-off references the icon name `file-archive`, which does not exist
+diff --git a/download/security-scanner-expo/ThreatInformationScreen.tsx b/download/security-scanner-expo/ThreatInformationScreen.tsx
+new file mode 100644
+index 0000000..05222d7
+--- /dev/null
++++ b/download/security-scanner-expo/ThreatInformationScreen.tsx
+@@ -0,0 +1,297 @@
++import React, { useMemo, useState } from "react";
++import {
++  Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text,
++  TextInput, TouchableOpacity, View,
++} from "react-native";
++import { Ionicons } from "@expo/vector-icons";
++
++type Kind = "Domain" | "IP" | "Hash";
++type State = "Active" | "Pending" | "Blocked";
++type Indicator = {
++  id: string; value: string; type: Kind; source: string; status: State;
++  added: string; updated: string;
++};
++
++const initial: Indicator[] = [
++  { id: "1", value: "malicious-domain.com", type: "Domain", source: "Threat Feed", status: "Active", added: "Oct 29, 2025", updated: "Oct 30, 2025" },
++  { id: "2", value: "e7f3a9d4e2f1...", type: "Hash", source: "Community", status: "Active", added: "Oct 28, 2025", updated: "Oct 29, 2025" },
++  { id: "3", value: "192.168.1.100", type: "IP", source: "Feed", status: "Active", added: "Oct 27, 2025", updated: "Oct 28, 2025" },
++  { id: "4", value: "trojan.carrier.net", type: "Domain", source: "Research", status: "Pending", added: "Oct 26, 2025", updated: "Oct 26, 2025" },
++  { id: "5", value: "d41d8cd98f00b...", type: "Hash", source: "Feed", status: "Blocked", added: "Oct 25, 2025", updated: "Oct 27, 2025" },
++  { id: "6", value: "bad-site.example", type: "Domain", source: "Community", status: "Active", added: "Oct 24, 2025", updated: "Oct 25, 2025" },
++  { id: "7", value: "203.0.113.17", type: "IP", source: "Threat Feed", status: "Pending", added: "Oct 23, 2025", updated: "Oct 24, 2025" },
++  { id: "8", value: "old-threat.net", type: "Domain", source: "Research", status: "Blocked", added: "Oct 22, 2025", updated: "Oct 23, 2025" },
++  { id: "9", value: "f5a1b7c9...", type: "Hash", source: "Feed", status: "Active", added: "Oct 21, 2025", updated: "Oct 22, 2025" },
++  { id: "10", value: "198.51.100.8", type: "IP", source: "Community", status: "Active", added: "Oct 20, 2025", updated: "Oct 21, 2025" },
++  { id: "11", value: "phishing-login.example", type: "Domain", source: "Threat Feed", status: "Pending", added: "Oct 19, 2025", updated: "Oct 20, 2025" },
++  { id: "12", value: "9b74c9897bac...", type: "Hash", source: "Research", status: "Blocked", added: "Oct 18, 2025", updated: "Oct 19, 2025" },
++];
++
++const activity = [
++  { action: "Added", indicator: "bad-site.example", by: "Admin", date: "Oct 30, 2025 – 09:20 AM", icon: "add-circle" as const, color: "#10A66A" },
++  { action: "Updated", indicator: "malicious-domain.com", by: "Admin", date: "Oct 29, 2025 – 04:15 PM", icon: "create" as const, color: "#0878F9" },
++  { action: "Removed", indicator: "old-threat.net", by: "Admin", date: "Oct 28, 2025 – 11:32 AM", icon: "trash" as const, color: "#EF4444" },
++];
++
++const C = { blue: "#0878F9", navy: "#0E2345", muted: "#5D78AD", border: "#DCE9FF", page: "#F4F8FF" };
++
++function I({ name, size = 18, color = C.blue }: {
++  name: React.ComponentProps<typeof Ionicons>["name"]; size?: number; color?: string;
++}) {
++  return <Ionicons name={name} size={size} color={color} />;
++}
++
++function Pill({ status }: { status: State }) {
++  const p = {
++    Active: { bg: "#DDF8EE", fg: "#008B5A", dot: "#12A66A" },
++    Pending: { bg: "#FFF0D9", fg: "#A95A00", dot: "#F59E0B" },
++    Blocked: { bg: "#FFE1E3", fg: "#C91F2B", dot: "#EF4444" },
++  }[status];
++  return <View style={[s.pill, { backgroundColor: p.bg }]}><View style={[s.dot, { backgroundColor: p.dot }]} /><Text style={{ color: p.fg, fontSize: 12 }}>{status}</Text></View>;
++}
++
++function Picker({ value, options, onChange }: {
++  value: string; options: string[]; onChange: (v: string) => void;
++}) {
++  const [open, setOpen] = useState(false);
++  return <View style={s.pickerWrap}>
++    <TouchableOpacity style={s.picker} onPress={() => setOpen(!open)}>
++      <Text style={s.pickerText} numberOfLines={1}>{value}</Text><I name={open ? "chevron-up" : "chevron-down"} color={C.muted} />
++    </TouchableOpacity>
++    {open && <View style={s.options}>{options.map(o =>
++      <TouchableOpacity key={o} style={s.option} onPress={() => { onChange(o); setOpen(false); }}>
++        <Text style={[s.optionText, value === o && { color: C.blue, fontWeight: "700" }]}>{o}</Text>
++      </TouchableOpacity>)}</View>}
++  </View>;
++}
++
++export default function ThreatInformationScreen() {
++  const [items, setItems] = useState(initial);
++  const [query, setQuery] = useState("");
++  const [typeFilter, setTypeFilter] = useState("All Types");
++  const [statusFilter, setStatusFilter] = useState("All Status");
++  const [page, setPage] = useState(1);
++  const [newValue, setNewValue] = useState("");
++  const [newType, setNewType] = useState("Select type");
++  const [source, setSource] = useState("Select source");
++  const [newStatus, setNewStatus] = useState<State>("Active");
++  const enuId, setMenuId] = useState<string | null>(null);
++
++  const filtered = useMemo(() => items.filter(x =>
++    (x.value + " " + x.source + " " + x.type).toLowerCase().includes(query.toLowerCase()) &&
++    (typeFilter === "All Types" || x.type === typeFilter) &&
++    (statusFilter === "All Status" || x.status === statusFilter)
++  ), [items, query, typeFilter, statusFilter]);
++
++  const pageSize = 5;
++  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
++  const currentPage = Math.min(page, pageCount);
++  const visible = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
++
++  function addIndicator() {
++    const value = newValue.trim();
++    if (!value || !["Domain", "IP", "Hash"].includes(newType) || source === "Select source") {
++      Alert.alert("Missing information", "Enter an indicator value and select its type and source.");
++      return;
++    }
++    if (items.some(x => x.value.toLowerCase() === value.toLowerCase())) {
++      Alert.alert("Already exists", "This indicator is already listed.");
++      return;
++    }
++    setItems(old => [{
++      id: String(Date.now()), value, type: newType as Kind, source, status: newStatus,
++      added: "Nov 3, 2026", updated: "Nov 3, 2026",
++    }, ...old]);
++    setNewValue(""); setNewType("Select type"); setSource("Select source");
++    setTypeFilter("All Types"); setStatusFilter("All Status"); setQuery(""); setPage(1);
++    Alert.alert("Indicator added", `${value} was added.`);
++  }
++
++  function remove(item: Indicator) {
++    Alert.alert("Remove indicator?", `Remove ${item.value}?`, [
++      { text: "Cancel", style: "cancel" },
++      { text: "Remove", style: "destructive", onPress: () => {
++        setItems(old => old.filter(x => x.id !== item.id)); setMenuId(null);
++      }},
++    ]);
++  }
++
++  function changeStatus(item: Indicator) {
++    const next: State = item.status === "Active" ? "Pending" : item.status === "Pending" ? "Blocked" : "Active";
++    setItems(old => old.map(x => x.id === item.id ? { ...x, status: next, updated: "Nov 3, 2026" } : x));
++    setMenuId(null);
++  }
++
++  return <SafeAreaView style={s.safe}>
++    <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
++    <View style={s.topbar}>
++      <TouchableOpacity onPress={() => Alert.alert("Navigation", "Connect your admin drawer here.")}><I name="menu" size={25} color={C.muted} /></TouchableOpacity>
++      <View style={s.topRight}>
++        <TouchableOpacity onPress={() => Alert.alert("Notifications", "No new notifications.")}><I name="notifications-outline" size={22} color={C.muted} /><View style={s.notifDot} /></TouchableOpacity>
++        <View style={s.avatar}><Text style={s.avatarText}>AD</Text></View><Text style={s.admin}>Admin</Text><I name="chevron-down" color={C.muted} size={16} />
++      </View>
++    </View>
++
++    <ScrollView style={s.page} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
++      <View style={s.heading}>
++        <View style={s.headingIcon}><I name="shield-checkmark" size={35} /></View>
++        <View style={{ flex: 1 }}><Text style={s.title}>Threat Information Management</Text><Text style={s.subtitle}>View and manage threat indicators used by the scanner.</Text></View>
++      </View>
++
++      <View style={s.filterBar}>
++        <View style={s.search}>
++          <I name="search" size={22} color={C.muted} />
++          <TextInput value={query} onChangeText={v => { setQuery(v); setPage(1); }} placeholder="Search indicators..." placeholderTextColor="#8195BE" style={s.searchInput} />
++          {!!query && <TouchableOpacity onPress={() => setQuery("")}><I name="close-circle" color={C.muted} /></TouchableOpacity>}
++        </View>
++        <View style={s.filterPicker}><Picker value={typeFilter} options={["All Types", "Domain", "IP", "Hash"]} onChange={v => { setTypeFilter(v); setPage(1); }} /></View>
++        <View style={s.filterPicker}><Picker value={statusFilter} options={["All Status", "Active", "Pending", "Blocked"]} onChange={v => { setStatusFilter(v); setPage(1); }} /></View>
++        <TouchableOpacity style={s.primary} onPress={() => Alert.alert("Add Threat Indicator", "Use the form on the right to add an indicator.")}><I name="add" color="#FFFFFF" size={22} /><Text style={s.primaryText}>Add Indicator</Text></TouchableOpacity>
++      </View>
++
++      <View style={s.mainRow}>
++        <View style={s.tableCard}>
++          <ScrollView horizontal showsHorizontalScrollIndicator>
++            <View>
++              <View style={s.tableHeader}>
++                {["Indicator", "Type", "Source", "Status", "Date Added", "Last Updated", "Actions"].map((h, i) =>
++                  <Text key={h} style={[s.th, { width: [182, 104, 101, 112, 130, 130, 65][i] }]}>{h}</Text>)}
++              </View>
++              {visible.map(item => <View key={item.id} style={s.row}>
++                <Text numberOfLines={1} style={[s.cell, { width: 182, paddingLeft: 14, paddingRight: 8 }]}>{item.value}</Text>
++                <View style={{ width: 104, paddingHorizontal: 8 }}><View style={s.typePill}>
++                  <I name={item.type === "Domain" ? "globe-outline" : item.type === "IP" ? "location" : "pricetag"} size={14} />
++                  <Text style={s.typeText}>{item.type}</Text>
++                </View></View>
++                <Text numberOfLines={1} style={[s.cell, { width: 101, paddingHorizontal: 8 }]}>{item.source}</Text>
++                <View style={{ width: 112, paddingHorizontal: 8 }}><Pill status={item.status} /></View>
++                <Text style={[s.cell, { width: 130, paddingHorizontal: 8 }]}>{item.added}</Text>
++                <Text style={[s.cell, { width: 130, paddingHorizontal: 8 }]}>{item.updated}</Text>
++                <View style={s.actionCell}>
++                  <TouchableOpacity style={s.iconButton} onPress={() => setMenuId(menuId === item.id ? null : item.id)}><I name="ellipsis-vertical" /></TouchableOpacity>
++                  {menuId === item.id && <View style={s.rowMenu}>
++                    <TouchableOpacity style={s.menuItem} onPress={() => changeStatus(item)}><I name="sync-outline" size={16} /><Text style={s.menuText}>Change status</Text></TouchableOpacity>
++                    <TouchableOpacity style={s.menuItem} onPress={() => { Alert.alert("Indicator details", `${item.value}\nType: ${item.type}\nSource: ${item.source}\nStatus: ${item.status}`); setMenuId(null); }}><I name="information-circle-outline" size={16} /><Text style={s.menuText}>View details</Text></TouchableOpacity>
++                    <TouchableOpacity style={s.menuItem} onPress={() => remove(item)}><I name="trash-outline" color="#E32636" size={16} /><Text style={[s.menuText, { color: "#E32636" }]}>Remove</Text></TouchableOpacity>
++                  </View>}
++                </View>
++              </View>)}
++              {visible.length === 0 && <View style={s.empty}><I name="search-outline" size={27} color={C.muted} /><Text style={s.emptyTitle}>No indicators found</Text><Text style={s.muted}>Try another search or filter.</Text></View>}
++              <View style={s.pagination}>
++                <Text style={s.muted}>Showing {filtered.length ? (currentPage - 1) * pageSize + 1 : 0}–{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length} indicators</Text>
++                <View style={s.pages}>
++                  <TouchableOpacity style={s.pageButton} disabled={currentPage === 1} onPress={() => setPage(currentPage - 1)}><I name="chevron-back" color={currentPage === 1 ? "#B9C9E3" : C.blue} /></TouchableOpacity>
++                  {Array.from({ length: pageCount }, (_, i) => i + 1).map(n => <TouchableOpacity key={n} style={[s.pageButton, currentPage === n && s.pageActive]} onPress={() => setPage(n)}><Text style={[s.pageNum, currentPage === n && { color: "#FFFFFF" }]}>{n}</Text></TouchableOpacity>)}
++                  <TouchableOpacity style={s.pageButton} disabled={currentPage === pageCount} onPress={() => setPage(currentPage + 1)}><I name="chevron-forward" color={currentPage === pageCount ? "#B9C9E3" : C.blue} /></TouchableOpacity>
++                </View>
++              </View>
++            </View>
++          </ScrollView>
++        </View>
++
++        <View style={s.addCard}>
++          <View style={s.addHeading}><View style={s.addIcon}><I name="add" size={28} /></View><View style={{ flex: 1 }}><Text style={s.addTitle}>Add Threat Indicator</Text><Text style={s.muted}>Add a new indicator to help detect threats.</Text></View></View>
++          <Text style={s.label}>Indicator Value *</Text>
++          <TextInput value={newValue} onChangeText={setNewValue} autoCapitalize="none" placeholder="Enter domain, IP, or hash..." placeholderTextColor="#8195BE" style={s.formInput} />
++          <Text style={s.label}>Type *</Text>
++          <Picker value={newType} options={["Select type", "Domain", "IP", "Hash"]} onChange={setNewType} />
++          <Text style={s.label}>Source</Text>
++          <Picker value={source} options={["Select source", "Threat Feed", "Community", "Feed", "Research", "Manual"]} onChange={setSource} />
++          <Text style={s.label}>Status</Text>
++          <Picker value={newStatus} options={["Active", "Pending", "Blocked"]} onChange={v => setNewStatus(v as State)} />
++          <TouchableOpacity style={[s.primary, s.submit]} onPress={addIndicator}><Text style={s.primaryText}>Add Indicator</Text></TouchableOpacity>
++        </View>
++      </View>
++
++      <View style={s.activityCard}>
++        <View style={s.activityHeading}><View style={s.addIcon}><I name="time-outline" size={25} /></View><Text style={s.activityTitle}>Recent Activity</Text><TouchableOpacity style={s.viewAll} onPress={() => Alert.alert("Recent Activity", "Showing recent threat indicator changes.")}><Text style={s.link}>View all activity</Text><I name="arrow-forward" size={15} /></TouchableOpacity></View>
++        <ScrollView horizontal showsHorizontalScrollIndicator>
++          <View>
++            <View style={[s.activityRow, s.activityHeader]}>
++              {["Action", "Indicator", "Performed by", "Date & Time"].map((v, i) => <Text key={v} style={[s.activityTh, { width: [190, 410, 220, 330][i] }]}>{v}</Text>)}
++            </View>
++            {activity.map(a => <View key={a.action} style={s.activityRow}>
++              <View style={[s.activityCell, { width: 190, flexDirection: "row", alignItems: "center", gap: 9 }]}><I name={a.icon} size={19} color={a.color} /><Text style={s.cell}>{a.action}</Text></View>
++              <Text style={[s.activityCell, s.cell, { width: 410 }]}>{a.indicator}</Text>
++              <Text style={[s.activityCell, s.cell, { width: 220 }]}>{a.by}</Text>
++              <Text style={[s.activityCell, s.cell, { width: 330 }]}>{a.date}</Text>
++            </View>)}
++          </View>
++        </ScrollView>
++      </View>
++
++      <View style={s.footer}><View style={s.healthDot} /><View><Text style={s.footerTitle}>System Healthy</Text><Text style={s.muted}>All services running</Text></View><Text style={s.version}>Security Scanner v1.0.0</Text></View>
++    </ScrollView>
++  </SafeAreaView>;
++}
++
++const s = StyleSheet.create({
++  safe: { flex: 1, backgroundColor: C.page },
++  topbar: { height: 64, backgroundColor: "#FFFFFF", borderBottomWidth: 1, borderBottomColor: C.border, paddingHorizontal: 22, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
++  topRight: { flexDirection: "row", alignItems: "center", gap: 11 },
++  notifDot: { position: "absolute", right: 0, top: 0, width: 8, height: 8, borderRadius: 4, backgroundColor: "#EF4444" },
++  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#0B1E45", alignItems: "center", justifyContent: "center", marginLeft: 10 },
++  avatarText: { color: "#FFFFFF", fontWeight: "700", fontSize: 12 },
++  admin: { color: C.navy, fontWeight: "600", fontSize: 14 },
++  page: { flex: 1 },
++  content: { padding: 22, paddingBottom: 36, gap: 16 },
++  heading: { flexDirection: "row", alignItems: "center", gap: 18, marginBottom: 2 },
++  headingIcon: { width: 78, height: 78, borderRadius: 22, backgroundColor: "#E2EEFF", alignItems: "center", justifyContent: "center" },
++  title: { color: C.navy, fontSize: 28, fontWeight: "800", letterSpacing: -0.7 },
++  subtitle: { color: C.muted, fontSize: 16, marginTop: 5 },
++  filterBar: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: C.border, borderRadius: 11, padding: 10, flexDirection: "row", alignItems: "center", gap: 12, zIndex: 10 },
++  search: { flex: 1, minWidth: 180, height: 42, borderWidth: 1, borderColor: "#CFE0FF", borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 10 },
++  searchInput: { flex: 1, color: C.navy, paddingVertical: 7, fontSize: 14 },
++  filterPicker: { width: 160 },
++  pickerWrap: { position: "relative", marginBottom: 10, zIndex: 4 },
++  picker: { minHeight: 39, borderWidth: 1, borderColor: "#CFE0FF", backgroundColor: "#FFFFFF", borderRadius: 8, paddingHorizontal: 11, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 6 },
++  pickerText: { color: C.navy, fontSize: 13, flexShrink: 1 },
++  options: { position: "absolute", top: 42, left: 0, right: 0, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: C.border, borderRadius: 8, zIndex: 40, elevation: 9, shadowColor: "#142C52", shadowOpacity: 0.12, shadowRadius: 8 },
++  option: { paddingHorizontal: 12, paddingVertical: 10 },
++  optionText: { color: C.navy, fontSize: 13 },
++  primary: { minHeight: 43, borderRadius: 8, backgroundColor: C.blue, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
++  primaryText: { color: "#FFFFFF", fontSize: 13, fontWeight: "600" },
++  mainRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
++  tableCard: { flex: 1, minWidth: 0, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: C.border, borderRadius: 10, overflow: "visible" },
++  tableHeader: { height: 58, flexDirection: "row", alignItems: "center", backgroundColor: "#F0F6FF", borderBottomWidth: 1, borderBottomColor: C.border },
++  th: { color: C.navy, fontWeight: "700", fontSize: 12, paddingHorizontal: 12 },
++  row: { minHeight: 57, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#E7EFFC" },
++  cell: { color: C.navy, fontSize: 13 },
++  typePill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#E6F1FF", borderRadius: 15, paddingHorizontal: 9, paddingVertical: 5 },
++  typeText: { color: C.blue, fontSize: 12 },
++  pill: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 6, borderRadius: 15, paddingHorizontal: 9, paddingVertical: 5 },
++  dot: { width: 10, height: 10, borderRadius: 5 },
++  actionCell: { width: 65, alignItems: "center", justifyContent: "center", position: "relative" },
++  iconButton: { width: 40, height: 36, borderWidth: 1, borderColor: "#CFE0FF", borderRadius: 7, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" },
++  rowMenu: { position: "absolute", top: 39, right: 4, width: 165, backgroundColor: "#FFFFFF", borderColor: C.border, borderWidth: 1, borderRadius: 8, zIndex: 50, elevation: 12, paddingVertical: 4 },
++  menuItem: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 10, paddingVertical: 9 },
++  menuText: { color: C.navy, fontSize: 12 },
++  empty: { alignItems: "center", padding: 26, gap: 6 },
++  emptyTitle: { color: C.navy, fontWeight: "700", fontSize: 15 },
++  muted: { color: C.muted, fontSize: 12 },
++  pagination: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 15, gap: 8 },
++  pages: { flexDirection: "row", alignItems: "center", gap: 5 },
++  pageButton: { minWidth: 33, height: 33, borderWidth: 1, borderColor: "#CFE0FF", borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF", paddingHorizontal: 5 },
++  pageActive: { backgroundColor: C.blue, borderColor: C.blue },
++  pageNum: { color: C.navy, fontSize: 13 },
++  addCard: { width: 330, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 15 },
++  addHeading: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 15 },
++  addIcon: { width: 43, height: 43, borderRadius: 13, backgroundColor: "#E6F1FF", alignItems: "center", justifyContent: "center" },
++  addTitle: { color: C.navy, fontSize: 18, fontWeight: "800" },
++  label: { fontSize: 13, fontWeight: "600", color: C.navy, marginBottom: 7 },
++  formInput: { height: 39, borderWidth: 1, borderColor: "#CFE0FF", borderRadius: 8, paddingHorizontal: 12, color: C.navy, fontSize: 13, marginBottom: 12 },
++  submit: { marginTop: 0, width: "100%" },
++  activityCard: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 10 },
++  activityHeading: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 4, paddingBottom: 10 },
++  activityTitle: { color: C.navy, fontSize: 18, fontWeight: "800", flex: 1 },
++  viewAll: { flexDirection: "row", alignItems: "center", gap: 5 },
++  link: { color: C.blue, fontSize: 12, fontWeight: "600" },
++  activityRow: { flexDirection: "row", alignItems: "center", minHeight: 41, borderBottomWidth: 1, borderBottomColor: "#E7EFFC" },
++  activityHeader: { backgroundColor: "#F0F6FF", minHeight: 38 },
++  activityTh: { paddingHorizontal: 12, color: C.navy, fontWeight: "700", fontSize: 12 },
++  activityCell: { paddingHorizontal: 12 },
++  footer: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderWidth: 1, borderColor: C.border, borderRadius: 10, backgroundColor: "#FFFFFF" },
++  healthDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: "#10A66A" },
++  footerTitle: { color: C.navy, fontWeight: "700", fontSize: 13 },
++  version: { marginLeft: "auto", color: C.muted, fontSize: 12 },
++});
+diff --git a/src/app/threat-information/page.tsx b/src/app/threat-information/page.tsx
+new file mode 100644
+index 0000000..f325c41
+--- /dev/null
++++ b/src/app/threat-information/page.tsx
+@@ -0,0 +1,12 @@
++import type { Metadata } from 'next';
++import ThreatInformationPreview from '@/components/threatinformation/ThreatInformationPreview';
++
++export const metadata: Metadata = {
++  title: 'Security Scanner — Threat Information Management',
++  description:
++    'Admin threat indicator management: search indicators, filter by type and status, add new domain/IP/hash indicators, change statuses, remove entries, and review recent activity.',
++};
++
++export default function ThreatInformation() {
++  return <ThreatInformationPreview />;
++}
+diff --git a/src/components/threatinformation/ThreatInformationPreview.tsx b/src/components/threatinformation/ThreatInformationPreview.tsx
+new file mode 100644
+index 0000000..9ee90ea
+--- /dev/null
++++ b/src/components/threatinformation/ThreatInformationPreview.tsx
+@@ -0,0 +1,220 @@
++'use client';
++
++// Must be the first import: defines the `__DEV__` global before any
++// React Native library module evaluates, and bridges `Alert.alert` to a
++// browser confirm dialog so the hand-off's validation, "Remove indicator?"
++// and "Indicator details" dialogs actually open on the web.
++import '@/rn-web/native-globals';
++import { useRouter } from 'next/navigation';
++import * as React from 'react';
++import { SafeAreaProvider } from 'react-native-safe-area-context';
++import ScreenLoader from '@/rn-web/ScreenLoader';
++import { webInitialMetrics } from '@/rn-web/webSafeAreaMetrics';
++
++const loadScreen = () => import('./ThreatInformationScreen');
++
++/*
++ * The threat-information hand-off (upload/16.md) is fully self-contained
++ * and interactive by design, per its own notes ("Search, type/status
++ * filters, adding, changing status, and removing indicators work
++ * locally"): the search box and both filter pickers filter the 12 sample
++ * indicators live, the Add Threat Indicator form validates (missing
++ * fields, duplicates) and prepends rows, every row's ⋮ menu changes the
++ * status, opens the details dialog or removes with confirmation, and the
++ * table paginates five rows at a time — those interactions stay inside
++ * the screen and are NOT bridged.
++ *
++ * To connect the screen to the rest of the app without touching the
++ * byte-identical screen code, the preview wraps it in a click-capture
++ * bridge:
++ *
++ * - The top-bar menu button is the hand-off's own integration point — its
++ *   alert literally says "Connect your admin drawer here." The existing
++ *   admin navigation in this app is the admin dashboard screen (14), so
++ *   the button routes there. The button renders only the Ionicons `menu`
++ *   glyph (no text), so the bridge matches its code point instead of
++ *   innerText (see MENU_GLYPH below).
++ * - The filter bar's "Add Indicator" button alerts "Use the form on the
++ *   right to add an indicator." — the form is on the page, so the bridge
++ *   scrolls to and focuses the form's Indicator Value input instead of
++ *   leaving a dead-end alert (the placeholder alert is suppressed).
++ * - The bell / admin-account / "View all activity" controls keep the
++ *   hand-off's alerts: there is no notifications or audit screen to route
++ *   to (same policy as screens 14 and 15).
++ */
++
++/** Ionicons code point for the `menu` glyph (from the installed glyphmap). */
++const MENU_GLYPH = 0xf451;
++/** Placeholder of the add-form's first input ("Indicator Value *"). */
++const VALUE_INPUT_PLACEHOLDER = 'Enter domain, IP, or hash...';
++
++const normalize = (value: string) => value.replace(/\s+/g, ' ').trim();
++
++function ThreatInformationPreviewInner() {
++  const router = useRouter();
++
++  const handleBridgeClick = React.useCallback(
++    (event: React.MouseEvent<HTMLDivElement>) => {
++      const target = event.target as HTMLElement | null;
++      if (!target) return;
++
++      // Top-bar menu button: the click lands on the icon's <span>, whose
++      // textContent is the single private-use-area glyph.
++      const glyph = target.textContent?.trim().codePointAt(0);
++      if (glyph === MENU_GLYPH) {
++        router.push('/admin-dashboard/');
++        return;
++      }
++
++      // Filter-bar "Add Indicator": focus the form's value input. The form's
++      // own submit reads the same — tell them apart by document order (the
++      // filter bar precedes the value input; the form submit follows it),
++      // so the real submit passes through untouched.
++      let node: HTMLElement | null = target;
++      while (node) {
++        const text = normalize(node.innerText);
++        if (text.endsWith('Add Indicator') && text.length < 40) {
++          const valueInput = document.querySelector(
++            `input[placeholder="${VALUE_INPUT_PLACEHOLDER}"]`,
++          );
++          if (!(valueInput instanceof HTMLElement)) return;
++          const targetPrecedesInput = !!(
++            valueInput.compareDocumentPosition(target) &
++            Node.DOCUMENT_POSITION_PRECEDING
++          );
++          if (!targetPrecedesInput) return;
++          event.preventDefault();
++          event.stopPropagation();
++          valueInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
++          valueInput.focus({ preventScroll: true });
++          return;
++        }
++        node = node.parentElement;
++      }
++    },
++    [router],
++  );
++
++  return (
++    // Capture-phase bridge: sits ABOVE the rendered screen so it wins over
++    // the bubble-phase Pressable/TouchableOpacity handlers (as in screens
++    // 14 and 15).
++    <div
++      onClickCapture={handleBridgeClick}
++      style={{ flex: 1, display: 'flex', minHeight: 0 }}
++    >
++      {/* Glue-only stacking fixes (the hand-off file stays byte-identical).
++          react-native-web's view reset gives every View `position: relative;
++          z-index: 0`, so siblings become stacking contexts painted in DOM
++          order and absolutely-positioned menus are trapped inside their own
++          ancestor's stacking context (verified with elementsFromPoint):
++
++          1. A row's ⋮ menu (`rowMenu`, absolute, z-index 50) opens over the
++             rows BELOW it — later rows are also z-0 contexts, DOM order
++             wins, and the menu is covered ("Oct 29, 2025" bled through it).
++             → Raise the open menu's row above its sibling rows.
++             `r-minHeight-b7yqai` (minHeight 57) identifies table rows;
++             `r-zIndex-1ym3atv` (z-index 50) identifies the open `rowMenu`.
++
++          2. Menus can also spill past their card's bottom edge into the
++             Recent Activity card (a later sibling of the `mainRow` that
++             holds both the table card and the add card). Raising the cards
++             alone cannot fix this: their z-index is trapped inside
++             `mainRow`'s own z-0 stacking context, and `mainRow` (z-0) loses
++             to the later `activityCard` (z-0) on DOM order — the "Recent
++             Activity" heading box painted over the add form's options menu.
++             → Raise `mainRow` itself (unique `flex-start` + row + 10px gap
++             combo) above `activityCard` while a row menu (z-index 50) or a
++             form options menu (z-index 40) is open inside it. `mainRow` and
++             `activityCard` only overlap where a menu spills, so the raised
++             row is invisible otherwise.
++
++          3. Every add-form picker wrap (`pickerWrap`, z-index 4) opens its
++             options (absolute, z-index 40) DOWNWARD over the pickers below
++             it — later wraps are equal z-4 contexts, DOM order wins, and
++             the "Select source" / "Active" wraps painted over the open
++             menu.
++             → Raise the wrap that contains the open options menu.
++             `r-zIndex-8fdsdq` (z-index 4) identifies picker wraps;
++             `r-zIndex-1lts25c` (z-index 40) identifies the open options.
++
++          The filter bar's own pickers need one extra rule: the bar carries
++          the hand-off's z-index 10, which already paints above the cards
++          while the cards are at their default z-0 — but rule 2 raises
++          `mainRow` to 20 while a row menu is open (the hand-off keeps both
++          menus open at once — there is no outside-click closing), which
++          would paint the table OVER the open filter dropdown.
++
++          4. → While the filter bar contains an open options menu, raise the
++             bar itself (its 11px radius is unique to it) above `mainRow`,
++             restoring the hand-off's native stacking (on device, zIndex 10
++             beats the table's z 0 regardless of other menus).
++             `r-borderRadius-1mxhqmb` identifies the filter bar.
++
++          5. Vertical clipping. react-native-web computes a horizontal
++             ScrollView's overflow-y to `hidden`, so a ⋮ menu opened on the
++             BOTTOM row is cut at the card's bottom edge ("Remove" fell
++             inside the hidden scrollable region — elementsFromPoint found
++             only the page background). Wide viewports (≥1240px) never need
++             the horizontal scroll — the table's fixed 824px of columns fit
++             the card — so the clip is released there. Below 1240px the
++             menu clips exactly as it does inside a native horizontal
++             ScrollView (iOS/Android clip vertically too), so the hand-off's
++             own behaviour is preserved. The rule targets the table card's
++             ScrollView only (its parent carries the card's `minWidth: 0` +
++             `overflow: visible` reset classes), leaving the Recent
++             Activity table's ScrollView untouched.
++             `r-minWidth-bcqeeo` + `r-overflow-bztko3` identify the table
++             card; `r-overflowX-lltvgl` identifies its horizontal
++             ScrollView.
++          `:has()` is supported in all current browsers. */}
++      <style>{`
++        .r-minHeight-b7yqai:has(.r-zIndex-1ym3atv) {
++          z-index: 40 !important;
++        }
++        .r-alignItems-1habvwh.r-flexDirection-18u37iz.r-gap-uaa2di:has(.r-zIndex-1ym3atv),
++        .r-alignItems-1habvwh.r-flexDirection-18u37iz.r-gap-uaa2di:has(.r-zIndex-1lts25c) {
++          z-index: 20 !important;
++        }
++        .r-zIndex-8fdsdq:has(.r-zIndex-1lts25c) {
++          z-index: 10 !important;
++        }
++        .r-borderRadius-1mxhqmb:has(.r-zIndex-1lts25c) {
++          z-index: 30 !important;
++        }
++        @media (min-width: 1240px) {
++          .r-minWidth-bcqeeo.r-overflow-bztko3 > .r-overflowX-lltvgl {
++            overflow: visible !important;
++          }
++        }
++      `}</style>
++      <ScreenLoader load={loadScreen} />
++    </div>
++  );
++}
++
++/**
++ * Renders the React Native threat-information screen in the browser via
++ * react-native-web.
++ *
++ * `SafeAreaProvider` is required by the `SafeAreaView` imported from
++ * react-native in the hand-off; on web it maps to a plain View. The page
++ * background matches the hand-off's `C.page` (#F4F8FF).
++ */
++export default function ThreatInformationPreview() {
++  return (
++    <div
++      style={{
++        height: '100dvh',
++        display: 'flex',
++        backgroundColor: '#F4F8FF',
++        fontFamily:
++          'system-ui, -apple-system, Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif',
++      }}
++    >
++      <SafeAreaProvider initialMetrics={webInitialMetrics} style={{ flex: 1 }}>
++        <ThreatInformationPreviewInner />
++      </SafeAreaProvider>
++    </div>
++  );
++}
+diff --git a/src/components/threatinformation/ThreatInformationScreen.tsx b/src/components/threatinformation/ThreatInformationScreen.tsx
+new file mode 100644
+index 0000000..05222d7
+--- /dev/null
++++ b/src/components/threatinformation/ThreatInformationScreen.tsx
+@@ -0,0 +1,297 @@
++import React, { useMemo, useState } from "react";
++import {
++  Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text,
++  TextInput, TouchableOpacity, View,
++} from "react-native";
++import { Ionicons } from "@expo/vector-icons";
++
++type Kind = "Domain" | "IP" | "Hash";
++type State = "Active" | "Pending" | "Blocked";
++type Indicator = {
++  id: string; value: string; type: Kind; source: string; status: State;
++  added: string; updated: string;
++};
++
++const initial: Indicator[] = [
++  { id: "1", value: "malicious-domain.com", type: "Domain", source: "Threat Feed", status: "Active", added: "Oct 29, 2025", updated: "Oct 30, 2025" },
++  { id: "2", value: "e7f3a9d4e2f1...", type: "Hash", source: "Community", status: "Active", added: "Oct 28, 2025", updated: "Oct 29, 2025" },
++  { id: "3", value: "192.168.1.100", type: "IP", source: "Feed", status: "Active", added: "Oct 27, 2025", updated: "Oct 28, 2025" },
++  { id: "4", value: "trojan.carrier.net", type: "Domain", source: "Research", status: "Pending", added: "Oct 26, 2025", updated: "Oct 26, 2025" },
++  { id: "5", value: "d41d8cd98f00b...", type: "Hash", source: "Feed", status: "Blocked", added: "Oct 25, 2025", updated: "Oct 27, 2025" },
++  { id: "6", value: "bad-site.example", type: "Domain", source: "Community", status: "Active", added: "Oct 24, 2025", updated: "Oct 25, 2025" },
++  { id: "7", value: "203.0.113.17", type: "IP", source: "Threat Feed", status: "Pending", added: "Oct 23, 2025", updated: "Oct 24, 2025" },
++  { id: "8", value: "old-threat.net", type: "Domain", source: "Research", status: "Blocked", added: "Oct 22, 2025", updated: "Oct 23, 2025" },
++  { id: "9", value: "f5a1b7c9...", type: "Hash", source: "Feed", status: "Active", added: "Oct 21, 2025", updated: "Oct 22, 2025" },
++  { id: "10", value: "198.51.100.8", type: "IP", source: "Community", status: "Active", added: "Oct 20, 2025", updated: "Oct 21, 2025" },
++  { id: "11", value: "phishing-login.example", type: "Domain", source: "Threat Feed", status: "Pending", added: "Oct 19, 2025", updated: "Oct 20, 2025" },
++  { id: "12", value: "9b74c9897bac...", type: "Hash", source: "Research", status: "Blocked", added: "Oct 18, 2025", updated: "Oct 19, 2025" },
++];
++
++const activity = [
++  { action: "Added", indicator: "bad-site.example", by: "Admin", date: "Oct 30, 2025 – 09:20 AM", icon: "add-circle" as const, color: "#10A66A" },
++  { action: "Updated", indicator: "malicious-domain.com", by: "Admin", date: "Oct 29, 2025 – 04:15 PM", icon: "create" as const, color: "#0878F9" },
++  { action: "Removed", indicator: "old-threat.net", by: "Admin", date: "Oct 28, 2025 – 11:32 AM", icon: "trash" as const, color: "#EF4444" },
++];
++
++const C = { blue: "#0878F9", navy: "#0E2345", muted: "#5D78AD", border: "#DCE9FF", page: "#F4F8FF" };
++
++function I({ name, size = 18, color = C.blue }: {
++  name: React.ComponentProps<typeof Ionicons>["name"]; size?: number; color?: string;
++}) {
++  return <Ionicons name={name} size={size} color={color} />;
++}
++
++function Pill({ status }: { status: State }) {
++  const p = {
++    Active: { bg: "#DDF8EE", fg: "#008B5A", dot: "#12A66A" },
++    Pending: { bg: "#FFF0D9", fg: "#A95A00", dot: "#F59E0B" },
++    Blocked: { bg: "#FFE1E3", fg: "#C91F2B", dot: "#EF4444" },
++  }[status];
++  return <View style={[s.pill, { backgroundColor: p.bg }]}><View style={[s.dot, { backgroundColor: p.dot }]} /><Text style={{ color: p.fg, fontSize: 12 }}>{status}</Text></View>;
++}
++
++function Picker({ value, options, onChange }: {
++  value: string; options: string[]; onChange: (v: string) => void;
++}) {
++  const [open, setOpen] = useState(false);
++  return <View style={s.pickerWrap}>
++    <TouchableOpacity style={s.picker} onPress={() => setOpen(!open)}>
++      <Text style={s.pickerText} numberOfLines={1}>{value}</Text><I name={open ? "chevron-up" : "chevron-down"} color={C.muted} />
++    </TouchableOpacity>
++    {open && <View style={s.options}>{options.map(o =>
++      <TouchableOpacity key={o} style={s.option} onPress={() => { onChange(o); setOpen(false); }}>
++        <Text style={[s.optionText, value === o && { color: C.blue, fontWeight: "700" }]}>{o}</Text>
++      </TouchableOpacity>)}</View>}
++  </View>;
++}
++
++export default function ThreatInformationScreen() {
++  const [items, setItems] = useState(initial);
++  const [query, setQuery] = useState("");
++  const [typeFilter, setTypeFilter] = useState("All Types");
++  const [statusFilter, setStatusFilter] = useState("All Status");
++  const [page, setPage] = useState(1);
++  const [newValue, setNewValue] = useState("");
++  const [newType, setNewType] = useState("Select type");
++  const [source, setSource] = useState("Select source");
++  const [newStatus, setNewStatus] = useState<State>("Active");
++  const enuId, setMenuId] = useState<string | null>(null);
++
++  const filtered = useMemo(() => items.filter(x =>
++    (x.value + " " + x.source + " " + x.type).toLowerCase().includes(query.toLowerCase()) &&
++    (typeFilter === "All Types" || x.type === typeFilter) &&
++    (statusFilter === "All Status" || x.status === statusFilter)
++  ), [items, query, typeFilter, statusFilter]);
++
++  const pageSize = 5;
++  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
++  const currentPage = Math.min(page, pageCount);
++  const visible = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
++
++  function addIndicator() {
++    const value = newValue.trim();
++    if (!value || !["Domain", "IP", "Hash"].includes(newType) || source === "Select source") {
++      Alert.alert("Missing information", "Enter an indicator value and select its type and source.");
++      return;
++    }
++    if (items.some(x => x.value.toLowerCase() === value.toLowerCase())) {
++      Alert.alert("Already exists", "This indicator is already listed.");
++      return;
++    }
++    setItems(old => [{
++      id: String(Date.now()), value, type: newType as Kind, source, status: newStatus,
++      added: "Nov 3, 2026", updated: "Nov 3, 2026",
++    }, ...old]);
++    setNewValue(""); setNewType("Select type"); setSource("Select source");
++    setTypeFilter("All Types"); setStatusFilter("All Status"); setQuery(""); setPage(1);
++    Alert.alert("Indicator added", `${value} was added.`);
++  }
++
++  function remove(item: Indicator) {
++    Alert.alert("Remove indicator?", `Remove ${item.value}?`, [
++      { text: "Cancel", style: "cancel" },
++      { text: "Remove", style: "destructive", onPress: () => {
++        setItems(old => old.filter(x => x.id !== item.id)); setMenuId(null);
++      }},
++    ]);
++  }
++
++  function changeStatus(item: Indicator) {
++    const next: State = item.status === "Active" ? "Pending" : item.status === "Pending" ? "Blocked" : "Active";
++    setItems(old => old.map(x => x.id === item.id ? { ...x, status: next, updated: "Nov 3, 2026" } : x));
++    setMenuId(null);
++  }
++
++  return <SafeAreaView style={s.safe}>
++    <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
++    <View style={s.topbar}>
++      <TouchableOpacity onPress={() => Alert.alert("Navigation", "Connect your admin drawer here.")}><I name="menu" size={25} color={C.muted} /></TouchableOpacity>
++      <View style={s.topRight}>
++        <TouchableOpacity onPress={() => Alert.alert("Notifications", "No new notifications.")}><I name="notifications-outline" size={22} color={C.muted} /><View style={s.notifDot} /></TouchableOpacity>
++        <View style={s.avatar}><Text style={s.avatarText}>AD</Text></View><Text style={s.admin}>Admin</Text><I name="chevron-down" color={C.muted} size={16} />
++      </View>
++    </View>
++
++    <ScrollView style={s.page} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
++      <View style={s.heading}>
++        <View style={s.headingIcon}><I name="shield-checkmark" size={35} /></View>
++        <View style={{ flex: 1 }}><Text style={s.title}>Threat Information Management</Text><Text style={s.subtitle}>View and manage threat indicators used by the scanner.</Text></View>
++      </View>
++
++      <View style={s.filterBar}>
++        <View style={s.search}>
++          <I name="search" size={22} color={C.muted} />
++          <TextInput value={query} onChangeText={v => { setQuery(v); setPage(1); }} placeholder="Search indicators..." placeholderTextColor="#8195BE" style={s.searchInput} />
++          {!!query && <TouchableOpacity onPress={() => setQuery("")}><I name="close-circle" color={C.muted} /></TouchableOpacity>}
++        </View>
++        <View style={s.filterPicker}><Picker value={typeFilter} options={["All Types", "Domain", "IP", "Hash"]} onChange={v => { setTypeFilter(v); setPage(1); }} /></View>
++        <View style={s.filterPicker}><Picker value={statusFilter} options={["All Status", "Active", "Pending", "Blocked"]} onChange={v => { setStatusFilter(v); setPage(1); }} /></View>
++        <TouchableOpacity style={s.primary} onPress={() => Alert.alert("Add Threat Indicator", "Use the form on the right to add an indicator.")}><I name="add" color="#FFFFFF" size={22} /><Text style={s.primaryText}>Add Indicator</Text></TouchableOpacity>
++      </View>
++
++      <View style={s.mainRow}>
++        <View style={s.tableCard}>
++          <ScrollView horizontal showsHorizontalScrollIndicator>
++            <View>
++              <View style={s.tableHeader}>
++                {["Indicator", "Type", "Source", "Status", "Date Added", "Last Updated", "Actions"].map((h, i) =>
++                  <Text key={h} style={[s.th, { width: [182, 104, 101, 112, 130, 130, 65][i] }]}>{h}</Text>)}
++              </View>
++              {visible.map(item => <View key={item.id} style={s.row}>
++                <Text numberOfLines={1} style={[s.cell, { width: 182, paddingLeft: 14, paddingRight: 8 }]}>{item.value}</Text>
++                <View style={{ width: 104, paddingHorizontal: 8 }}><View style={s.typePill}>
++                  <I name={item.type === "Domain" ? "globe-outline" : item.type === "IP" ? "location" : "pricetag"} size={14} />
++                  <Text style={s.typeText}>{item.type}</Text>
++                </View></View>
++                <Text numberOfLines={1} style={[s.cell, { width: 101, paddingHorizontal: 8 }]}>{item.source}</Text>
++                <View style={{ width: 112, paddingHorizontal: 8 }}><Pill status={item.status} /></View>
++                <Text style={[s.cell, { width: 130, paddingHorizontal: 8 }]}>{item.added}</Text>
++                <Text style={[s.cell, { width: 130, paddingHorizontal: 8 }]}>{item.updated}</Text>
++                <View style={s.actionCell}>
++                  <TouchableOpacity style={s.iconButton} onPress={() => setMenuId(menuId === item.id ? null : item.id)}><I name="ellipsis-vertical" /></TouchableOpacity>
++                  {menuId === item.id && <View style={s.rowMenu}>
++                    <TouchableOpacity style={s.menuItem} onPress={() => changeStatus(item)}><I name="sync-outline" size={16} /><Text style={s.menuText}>Change status</Text></TouchableOpacity>
++                    <TouchableOpacity style={s.menuItem} onPress={() => { Alert.alert("Indicator details", `${item.value}\nType: ${item.type}\nSource: ${item.source}\nStatus: ${item.status}`); setMenuId(null); }}><I name="information-circle-outline" size={16} /><Text style={s.menuText}>View details</Text></TouchableOpacity>
++                    <TouchableOpacity style={s.menuItem} onPress={() => remove(item)}><I name="trash-outline" color="#E32636" size={16} /><Text style={[s.menuText, { color: "#E32636" }]}>Remove</Text></TouchableOpacity>
++                  </View>}
++                </View>
++              </View>)}
++              {visible.length === 0 && <View style={s.empty}><I name="search-outline" size={27} color={C.muted} /><Text style={s.emptyTitle}>No indicators found</Text><Text style={s.muted}>Try another search or filter.</Text></View>}
++              <View style={s.pagination}>
++                <Text style={s.muted}>Showing {filtered.length ? (currentPage - 1) * pageSize + 1 : 0}–{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length} indicators</Text>
++                <View style={s.pages}>
++                  <TouchableOpacity style={s.pageButton} disabled={currentPage === 1} onPress={() => setPage(currentPage - 1)}><I name="chevron-back" color={currentPage === 1 ? "#B9C9E3" : C.blue} /></TouchableOpacity>
++                  {Array.from({ length: pageCount }, (_, i) => i + 1).map(n => <TouchableOpacity key={n} style={[s.pageButton, currentPage === n && s.pageActive]} onPress={() => setPage(n)}><Text style={[s.pageNum, currentPage === n && { color: "#FFFFFF" }]}>{n}</Text></TouchableOpacity>)}
++                  <TouchableOpacity style={s.pageButton} disabled={currentPage === pageCount} onPress={() => setPage(currentPage + 1)}><I name="chevron-forward" color={currentPage === pageCount ? "#B9C9E3" : C.blue} /></TouchableOpacity>
++                </View>
++              </View>
++            </View>
++          </ScrollView>
++        </View>
++
++        <View style={s.addCard}>
++          <View style={s.addHeading}><View style={s.addIcon}><I name="add" size={28} /></View><View style={{ flex: 1 }}><Text style={s.addTitle}>Add Threat Indicator</Text><Text style={s.muted}>Add a new indicator to help detect threats.</Text></View></View>
++          <Text style={s.label}>Indicator Value *</Text>
++          <TextInput value={newValue} onChangeText={setNewValue} autoCapitalize="none" placeholder="Enter domain, IP, or hash..." placeholderTextColor="#8195BE" style={s.formInput} />
++          <Text style={s.label}>Type *</Text>
++          <Picker value={newType} options={["Select type", "Domain", "IP", "Hash"]} onChange={setNewType} />
++          <Text style={s.label}>Source</Text>
++          <Picker value={source} options={["Select source", "Threat Feed", "Community", "Feed", "Research", "Manual"]} onChange={setSource} />
++          <Text style={s.label}>Status</Text>
++          <Picker value={newStatus} options={["Active", "Pending", "Blocked"]} onChange={v => setNewStatus(v as State)} />
++          <TouchableOpacity style={[s.primary, s.submit]} onPress={addIndicator}><Text style={s.primaryText}>Add Indicator</Text></TouchableOpacity>
++        </View>
++      </View>
++
++      <View style={s.activityCard}>
++        <View style={s.activityHeading}><View style={s.addIcon}><I name="time-outline" size={25} /></View><Text style={s.activityTitle}>Recent Activity</Text><TouchableOpacity style={s.viewAll} onPress={() => Alert.alert("Recent Activity", "Showing recent threat indicator changes.")}><Text style={s.link}>View all activity</Text><I name="arrow-forward" size={15} /></TouchableOpacity></View>
++        <ScrollView horizontal showsHorizontalScrollIndicator>
++          <View>
++            <View style={[s.activityRow, s.activityHeader]}>
++              {["Action", "Indicator", "Performed by", "Date & Time"].map((v, i) => <Text key={v} style={[s.activityTh, { width: [190, 410, 220, 330][i] }]}>{v}</Text>)}
++            </View>
++            {activity.map(a => <View key={a.action} style={s.activityRow}>
++              <View style={[s.activityCell, { width: 190, flexDirection: "row", alignItems: "center", gap: 9 }]}><I name={a.icon} size={19} color={a.color} /><Text style={s.cell}>{a.action}</Text></View>
++              <Text style={[s.activityCell, s.cell, { width: 410 }]}>{a.indicator}</Text>
++              <Text style={[s.activityCell, s.cell, { width: 220 }]}>{a.by}</Text>
++              <Text style={[s.activityCell, s.cell, { width: 330 }]}>{a.date}</Text>
++            </View>)}
++          </View>
++        </ScrollView>
++      </View>
++
++      <View style={s.footer}><View style={s.healthDot} /><View><Text style={s.footerTitle}>System Healthy</Text><Text style={s.muted}>All services running</Text></View><Text style={s.version}>Security Scanner v1.0.0</Text></View>
++    </ScrollView>
++  </SafeAreaView>;
++}
++
++const s = StyleSheet.create({
++  safe: { flex: 1, backgroundColor: C.page },
++  topbar: { height: 64, backgroundColor: "#FFFFFF", borderBottomWidth: 1, borderBottomColor: C.border, paddingHorizontal: 22, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
++  topRight: { flexDirection: "row", alignItems: "center", gap: 11 },
++  notifDot: { position: "absolute", right: 0, top: 0, width: 8, height: 8, borderRadius: 4, backgroundColor: "#EF4444" },
++  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#0B1E45", alignItems: "center", justifyContent: "center", marginLeft: 10 },
++  avatarText: { color: "#FFFFFF", fontWeight: "700", fontSize: 12 },
++  admin: { color: C.navy, fontWeight: "600", fontSize: 14 },
++  page: { flex: 1 },
++  content: { padding: 22, paddingBottom: 36, gap: 16 },
++  heading: { flexDirection: "row", alignItems: "center", gap: 18, marginBottom: 2 },
++  headingIcon: { width: 78, height: 78, borderRadius: 22, backgroundColor: "#E2EEFF", alignItems: "center", justifyContent: "center" },
++  title: { color: C.navy, fontSize: 28, fontWeight: "800", letterSpacing: -0.7 },
++  subtitle: { color: C.muted, fontSize: 16, marginTop: 5 },
++  filterBar: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: C.border, borderRadius: 11, padding: 10, flexDirection: "row", alignItems: "center", gap: 12, zIndex: 10 },
++  search: { flex: 1, minWidth: 180, height: 42, borderWidth: 1, borderColor: "#CFE0FF", borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 10 },
++  searchInput: { flex: 1, color: C.navy, paddingVertical: 7, fontSize: 14 },
++  filterPicker: { width: 160 },
++  pickerWrap: { position: "relative", marginBottom: 10, zIndex: 4 },
++  picker: { minHeight: 39, borderWidth: 1, borderColor: "#CFE0FF", backgroundColor: "#FFFFFF", borderRadius: 8, paddingHorizontal: 11, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 6 },
++  pickerText: { color: C.navy, fontSize: 13, flexShrink: 1 },
++  options: { position: "absolute", top: 42, left: 0, right: 0, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: C.border, borderRadius: 8, zIndex: 40, elevation: 9, shadowColor: "#142C52", shadowOpacity: 0.12, shadowRadius: 8 },
++  option: { paddingHorizontal: 12, paddingVertical: 10 },
++  optionText: { color: C.navy, fontSize: 13 },
++  primary: { minHeight: 43, borderRadius: 8, backgroundColor: C.blue, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
++  primaryText: { color: "#FFFFFF", fontSize: 13, fontWeight: "600" },
++  mainRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
++  tableCard: { flex: 1, minWidth: 0, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: C.border, borderRadius: 10, overflow: "visible" },
++  tableHeader: { height: 58, flexDirection: "row", alignItems: "center", backgroundColor: "#F0F6FF", borderBottomWidth: 1, borderBottomColor: C.border },
++  th: { color: C.navy, fontWeight: "700", fontSize: 12, paddingHorizontal: 12 },
++  row: { minHeight: 57, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#E7EFFC" },
++  cell: { color: C.navy, fontSize: 13 },
++  typePill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#E6F1FF", borderRadius: 15, paddingHorizontal: 9, paddingVertical: 5 },
++  typeText: { color: C.blue, fontSize: 12 },
++  pill: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 6, borderRadius: 15, paddingHorizontal: 9, paddingVertical: 5 },
++  dot: { width: 10, height: 10, borderRadius: 5 },
++  actionCell: { width: 65, alignItems: "center", justifyContent: "center", position: "relative" },
++  iconButton: { width: 40, height: 36, borderWidth: 1, borderColor: "#CFE0FF", borderRadius: 7, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" },
++  rowMenu: { position: "absolute", top: 39, right: 4, width: 165, backgroundColor: "#FFFFFF", borderColor: C.border, borderWidth: 1, borderRadius: 8, zIndex: 50, elevation: 12, paddingVertical: 4 },
++  menuItem: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 10, paddingVertical: 9 },
++  menuText: { color: C.navy, fontSize: 12 },
++  empty: { alignItems: "center", padding: 26, gap: 6 },
++  emptyTitle: { color: C.navy, fontWeight: "700", fontSize: 15 },
++  muted: { color: C.muted, fontSize: 12 },
++  pagination: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 15, gap: 8 },
++  pages: { flexDirection: "row", alignItems: "center", gap: 5 },
++  pageButton: { minWidth: 33, height: 33, borderWidth: 1, borderColor: "#CFE0FF", borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF", paddingHorizontal: 5 },
++  pageActive: { backgroundColor: C.blue, borderColor: C.blue },
++  pageNum: { color: C.navy, fontSize: 13 },
++  addCard: { width: 330, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 15 },
++  addHeading: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 15 },
++  addIcon: { width: 43, height: 43, borderRadius: 13, backgroundColor: "#E6F1FF", alignItems: "center", justifyContent: "center" },
++  addTitle: { color: C.navy, fontSize: 18, fontWeight: "800" },
++  label: { fontSize: 13, fontWeight: "600", color: C.navy, marginBottom: 7 },
++  formInput: { height: 39, borderWidth: 1, borderColor: "#CFE0FF", borderRadius: 8, paddingHorizontal: 12, color: C.navy, fontSize: 13, marginBottom: 12 },
++  submit: { marginTop: 0, width: "100%" },
++  activityCard: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 10 },
++  activityHeading: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 4, paddingBottom: 10 },
++  activityTitle: { color: C.navy, fontSize: 18, fontWeight: "800", flex: 1 },
++  viewAll: { flexDirection: "row", alignItems: "center", gap: 5 },
++  link: { color: C.blue, fontSize: 12, fontWeight: "600" },
++  activityRow: { flexDirection: "row", alignItems: "center", minHeight: 41, borderBottomWidth: 1, borderBottomColor: "#E7EFFC" },
++  activityHeader: { backgroundColor: "#F0F6FF", minHeight: 38 },
++  activityTh: { paddingHorizontal: 12, color: C.navy, fontWeight: "700", fontSize: 12 },
++  activityCell: { paddingHorizontal: 12 },
++  footer: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderWidth: 1, borderColor: C.border, borderRadius: 10, backgroundColor: "#FFFFFF" },
++  healthDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: "#10A66A" },
++  footerTitle: { color: C.navy, fontWeight: "700", fontSize: 13 },
++  version: { marginLeft: "auto", color: C.muted, fontSize: 12 },
++});
+---
+---is Zerodek same as root?---
+admin-dashboard
+admin-sign-in
+api
+dashboard
+file-selection
+ThreatInformationPreview.tsx
+ThreatInformationScreen.tsx
