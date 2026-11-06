@@ -323,12 +323,29 @@ function KindPill({ kind }: { kind: FeedEvent["kind"] }) {
   );
 }
 
-export default function RealTimeProtectionScreen() {
+type Props = {
+  /// Persisted master-toggle state from GET /api/settings/rtp, forwarded by
+  /// the web glue. Undefined keeps the screen's designed default (ON).
+  protectionEnabled?: boolean;
+  /// Called whenever protection turns on/off (switch, pause actions), so
+  /// the glue can PUT /api/settings/rtp and the choice survives reloads.
+  onProtectionChange?: (enabled: boolean) => void;
+};
+
+export default function RealTimeProtectionScreen({
+  protectionEnabled,
+  onProtectionChange,
+}: Props = {}) {
   const { width } = useWindowDimensions();
   const compact = width < 1100;
   const narrow = width < 760;
 
-  const [protectionOn, setProtectionOn] = useState(true);
+  const [protectionOn, setProtectionOn] = useState(protectionEnabled ?? true);
+
+  // The glue loads the persisted state after mount; adopt it when it lands.
+  useEffect(() => {
+    if (protectionEnabled !== undefined) setProtectionOn(protectionEnabled);
+  }, [protectionEnabled]);
   const [pausedUntil, setPausedUntil] = useState<string | null>(null);
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({
     downloads: true,
@@ -384,6 +401,7 @@ export default function RealTimeProtectionScreen() {
 
   const toggleProtection = (value: boolean) => {
     setProtectionOn(value);
+    onProtectionChange?.(value);
     if (value) {
       setPausedUntil(null);
       showNotice("Real-time protection resumed — downloads and links are scanned again.");
@@ -395,6 +413,7 @@ export default function RealTimeProtectionScreen() {
 
   const pauseFor = (label: string) => {
     setProtectionOn(false);
+    onProtectionChange?.(false);
     setPausedUntil(label);
     showNotice(`Protection paused for ${label}. Tap "Resume now" to turn it back on.`);
   };

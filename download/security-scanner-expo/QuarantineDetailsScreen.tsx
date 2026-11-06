@@ -36,6 +36,17 @@ type Props = {
   onHistory?: () => void;
   onSettings?: () => void;
   onOpenQuarantine?: () => void;
+  /// Live quarantined item from GET /api/quarantine, forwarded by the glue
+  /// via query params. Undefined keeps the hand-off's designed sample.
+  itemId?: string;
+  itemName?: string;
+  itemType?: string;
+  itemSize?: string;
+  itemReason?: string;
+  itemDate?: string;
+  /// Called on confirmed delete so the glue can hit DELETE
+  /// /api/quarantine/:id; without it the hand-off keeps its demo notice.
+  onDelete?: (id: string) => void;
 };
 
 const BLUE = '#0878F9';
@@ -160,6 +171,13 @@ export default function QuarantineDetailsScreen({
   onHistory,
   onSettings,
   onOpenQuarantine,
+  itemId,
+  itemName = 'Project_Proposal.pdf',
+  itemType = 'PDF document',
+  itemSize = '2.4 MB',
+  itemReason = 'Malicious content detected',
+  itemDate = 'Oct 30, 2025  •  10:24 AM',
+  onDelete,
 }: Props) {
   const { width } = useWindowDimensions();
   const compact = width < 900;
@@ -176,11 +194,18 @@ export default function QuarantineDetailsScreen({
           style: 'destructive',
           onPress: () => {
             setDeleting(true);
-            // TODO: Call your native quarantine/file service here.
-            Alert.alert(
-              'Demo action',
-              'Connect your quarantine service to permanently delete the actual file.',
-            );
+            // With the glue's onDelete this really removes the quarantined
+            // item (DELETE /api/quarantine/:id); without it the hand-off
+            // keeps its honest demo notice.
+            if (onDelete && itemId) {
+              onDelete(itemId);
+              Alert.alert('File deleted', `${itemName} has been permanently removed.`);
+            } else {
+              Alert.alert(
+                'Demo action',
+                'Connect your quarantine service to permanently delete the actual file.',
+              );
+            }
             setDeleting(false);
           },
         },
@@ -237,8 +262,8 @@ export default function QuarantineDetailsScreen({
                 <Text style={styles.pdfLabel}>PDF</Text>
               </View>
               <View style={styles.fileSummaryText}>
-                <Text style={styles.fileTitle}>Project_Proposal.pdf</Text>
-                <Text style={styles.fileSubtitle}>PDF document  •  2.4 MB</Text>
+                <Text style={styles.fileTitle}>{itemName}</Text>
+                <Text style={styles.fileSubtitle}>{itemType}  •  {itemSize}</Text>
                 <View style={styles.quarantinedBanner}>
                   <View style={styles.redCircle}>
                     <ShieldAlert size={17} color="#FFFFFF" />
@@ -258,14 +283,14 @@ export default function QuarantineDetailsScreen({
                 <CalendarDays size={23} color="#49658F" />
                 <View>
                   <Text style={styles.metadataLabel}>Quarantined on</Text>
-                  <Text style={styles.metadataValue}>Oct 30, 2025  •  10:24 AM</Text>
+                  <Text style={styles.metadataValue}>{itemDate}</Text>
                 </View>
               </View>
               <View style={styles.metadataRow}>
                 <Shield size={23} color="#49658F" />
                 <View>
                   <Text style={styles.metadataLabel}>Reason</Text>
-                  <Text style={styles.metadataValue}>Malicious content detected</Text>
+                  <Text style={styles.metadataValue}>{itemReason}</Text>
                 </View>
               </View>
               <View style={styles.metadataRow}>
@@ -286,9 +311,9 @@ export default function QuarantineDetailsScreen({
               </View>
 
               <View style={styles.detailsList}>
-                <DetailRow label="File name" value="Project_Proposal.pdf" />
-                <DetailRow label="File type" value="PDF document" />
-                <DetailRow label="File size" value="2.4 MB" />
+                <DetailRow label="File name" value={itemName} />
+                <DetailRow label="File type" value={itemType} />
+                <DetailRow label="File size" value={itemSize} />
               </View>
 
               <View style={styles.infoBox}>

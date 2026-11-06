@@ -4,7 +4,7 @@
 // React Native library module evaluates, and patches `Alert.alert` so the
 // hand-off's scan/delete dialogs actually open browser dialogs.
 import '@/rn-web/native-globals';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import * as React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import ScreenLoader from '@/rn-web/ScreenLoader';
@@ -14,6 +14,16 @@ const loadScreen = () => import('./QuarantineDetailsScreen');
 
 function QuarantineDetailsPreviewInner() {
   const router = useRouter();
+  const params = useSearchParams();
+
+  // Live quarantined item forwarded by the quarantine list (screen 8) via
+  // query params. Without params the hand-off keeps its designed sample.
+  const itemId = params.get('id') ?? undefined;
+  const itemName = params.get('name') ?? undefined;
+  const itemType = params.get('type') ?? undefined;
+  const itemSize = params.get('size') ?? undefined;
+  const itemReason = params.get('reason') ?? undefined;
+  const itemDate = params.get('date') ?? undefined;
 
   // Back to the quarantined-files list (screen 8). The hand-off's back link
   // and the help bar's "Back to list" both fall back to onOpenQuarantine,
@@ -39,6 +49,25 @@ function QuarantineDetailsPreviewInner() {
     router.push('/dashboard/?view=Settings');
   }, [router]);
 
+  // "Delete permanently" on a live row really removes it through
+  // DELETE /api/quarantine/:id, so the list refreshes without it.
+  const handleDelete = React.useCallback(
+    (id: string) => {
+      void (async () => {
+        try {
+          await fetch(`/api/quarantine/${id}/`, {
+            method: 'DELETE',
+            credentials: 'same-origin',
+          });
+        } catch {
+          // The hand-off already showed its "File deleted" state; a failed
+          // request just means the item stays until the next refresh.
+        }
+      })();
+    },
+    [],
+  );
+
   const screenProps = React.useMemo(
     () => ({
       onBack: handleBack,
@@ -46,8 +75,15 @@ function QuarantineDetailsPreviewInner() {
       onHistory: handleHistory,
       onSettings: handleSettings,
       onOpenQuarantine: handleBack,
+      itemId,
+      itemName,
+      itemType,
+      itemSize,
+      itemReason,
+      itemDate,
+      onDelete: itemId ? handleDelete : undefined,
     }),
-    [handleBack, handleHome, handleHistory, handleSettings],
+    [handleBack, handleHome, handleHistory, handleSettings, itemId, itemName, itemType, itemSize, itemReason, itemDate, handleDelete],
   );
 
   return (
@@ -101,7 +137,10 @@ export default function QuarantineDetailsPreview() {
       }}
     >
       <SafeAreaProvider initialMetrics={webInitialMetrics} style={{ flex: 1 }}>
-        <QuarantineDetailsPreviewInner />
+        {/* `useSearchParams` needs a Suspense boundary during static prerender. */}
+        <React.Suspense fallback={null}>
+          <QuarantineDetailsPreviewInner />
+        </React.Suspense>
       </SafeAreaProvider>
     </div>
   );

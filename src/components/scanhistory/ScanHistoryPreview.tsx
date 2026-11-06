@@ -13,12 +13,12 @@ const loadScreen = () => import('./ScanHistoryScreen');
 
 /**
  * The hand-off is self-contained (no navigation props): its sidebar
- * `navigate()` and row `openRecord()` are console.log stubs, and its notes
- * say to connect them to the real screens when those routes exist. They do
- * now, so this bridge mirrors the hand-off's own sample records (same
- * `INITIAL_RECORDS` data, which the screen renders verbatim) and routes
- * clicks at the glue level, exactly like the dashboard's "Scan file"
- * bridge. The hand-off component itself is not modified.
+ * `navigate()` and row `openRecord()` are console.log stubs. This bridge now
+ * feeds the screen its REAL history from GET /api/scans (the same records
+ * the scanner writes), mapped into the hand-off's ScanRecord shape, and
+ * routes row clicks into the matching result screens. If the API is
+ * unreachable the screen keeps its own demo snapshot, so the preview never
+ * dead-ends.
  */
 type BridgedRecord = {
   item: string;
@@ -28,6 +28,40 @@ type BridgedRecord = {
   time: string;
 };
 
+type ApiScan = {
+  id?: string;
+  kind?: string;
+  target?: string;
+  size?: number | null;
+  verdict?: string;
+  severity?: string | null;
+  reasons?: string[];
+  checkedAt?: string;
+};
+
+/** Mirrors the hand-off's ScanResult union for the rows the glue injects. */
+type ScanResultValue =
+  | 'Threat found'
+  | 'No known threat'
+  | 'Likely dangerous'
+  | 'Needs your review'
+  | 'Could not decide';
+
+/** Structural match of the hand-off's ScanRecord, fed via the records prop. */
+type LiveRecord = {
+  id: string;
+  date: string;
+  time: string;
+  item: string;
+  subtitle?: string;
+  type: 'File' | 'Link';
+  result: ScanResultValue;
+  detail: string;
+  icon: 'document' | 'image' | 'link';
+};
+
+// Demo metadata mirrored from the hand-off's sample records, so row clicks
+// still route when the API is unreachable.
 const BRIDGED_RECORDS: BridgedRecord[] = [
   { item: 'Project_Proposal.pdf', subtitle: '2.4 MB', type: 'File', date: 'Oct 30, 2025', time: '10:24 AM' },
   { item: 'Screenshot_20251030.png', subtitle: '1.2 MB', type: 'File', date: 'Oct 30, 2025', time: '09:17 AM' },
@@ -48,10 +82,78 @@ function describeFile(item: string): string {
   return 'File';
 }
 
+function formatSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}
+
 const normalize = (text: string) => (text || '').replace(/\s+/g, ' ').trim();
 
 function ScanHistoryPreviewInner() {
   const router = useRouter();
+
+  // Live history: GET /api/scans mapped into the hand-off's record shape.
+  // Null keeps the hand-off's own demo snapshot on API failure.
+  const [bridged, setBridged] = React.useState<BridgedRecord[]>(BRIDGED_RECORDS);
+  const [liveRecords, setLiveRecords] = React.useState<LiveRecord[] | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch('/api/scans/?limit=60', {
+          credentials: 'same-origin',
+        });
+        if (!response.ok) return;
+        const data = (await response.json()) as { scans?: ApiScan[] };
+        const scans = data.scans ?? [];
+        if (cancelled || scans.length === 0) return;
+
+        const records: LiveRecord[] = scans.map(scan => {
+          const checked = new Date(scan.checkedAt ?? Date.now());
+          const date = checked.toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric',
+          });
+          const time = checked.toLocaleTimeString('en-US', {
+            hour: 'numeric', minute: '2-digit',
+          });
+          const isFile = scan.kind !== 'link';
+          const target = scan.target ?? 'Unknown item';
+          const ext = target.slice(target.lastIndexOf('.') + 1).toLowerCase();
+          const result: ScanResultValue =
+            scan.verdict === 'malicious'
+              ? isFile ? 'Threat found' : 'Likely dangerous'
+              : scan.verdict === 'suspicious'
+                ? 'Needs your review'
+                : scan.verdict === 'error'
+                  ? 'Could not decide'
+                  : 'No known threat';
+          return {
+            id: scan.id ?? target,
+            date,
+            time,
+            item: target,
+            subtitle: isFile && scan.size ? formatSize(scan.size) : undefined,
+            type: isFile ? 'File' : 'Link',
+            result,
+            detail: scan.reasons?.[0] ?? 'No known threat found.',
+            icon: isFile
+              ? ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic'].includes(ext) ? 'image' : 'document'
+              : 'link',
+          };
+        });
+
+        setLiveRecords(records);
+        setBridged(records.map(({ item, subtitle, type, date, time }) => ({
+          item, subtitle, type: type as 'File' | 'Link', date, time,
+        })));
+      } catch {
+        // Hand-off keeps its demo snapshot; nothing to do.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleBridgeClick = React.useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
@@ -70,7 +172,7 @@ function ScanHistoryPreviewInner() {
         // Row identification: the innermost node whose text is exactly the
         // record's item, or a row-sized node containing it plus a time.
         if (!destination) {
-          for (const record of BRIDGED_RECORDS) {
+          for (const record of bridged) {
             const isItem = text === record.item;
             const isRow =
               text.includes(record.item) &&
@@ -103,14 +205,14 @@ function ScanHistoryPreviewInner() {
 
       if (destination) router.push(destination);
     },
-    [router],
+    [bridged, router],
   );
 
   return (
     // The capture-phase bridge must sit ABOVE the rendered screen: the
     // hand-off's sidebar and rows are console.log stubs on the web preview.
     <div onClickCapture={handleBridgeClick} style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-      <ScreenLoader load={loadScreen} />
+      <ScreenLoader load={loadScreen} screenProps={{ records: liveRecords ?? undefined }} />
     </div>
   );
 }

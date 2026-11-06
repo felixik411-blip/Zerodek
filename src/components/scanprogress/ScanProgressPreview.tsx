@@ -17,9 +17,17 @@ function ScanProgressPreviewInner() {
 
   // Optional glue bridge: the file-selection screen forwards the chosen file
   // via query params. Without params, the hand-off's own defaults render.
+  // It now also forwards the live verdict from POST /api/scan/file
+  // (verdict / severity / threat / reasons / scanId), which this glue passes
+  // on to the scan-result screen when the progress animation completes.
   const fileName = params.get('file') ?? undefined;
   const fileType = params.get('type') ?? undefined;
   const fileSize = params.get('size') ?? undefined;
+  const verdict = params.get('verdict');
+  const severity = params.get('severity');
+  const threat = params.get('threat');
+  const reasons = params.get('reasons');
+  const scanId = params.get('scanId');
 
   const handleBackHome = React.useCallback(() => {
     // Trailing slash on purpose: the preview proxy 301-redirects /dashboard to
@@ -35,16 +43,21 @@ function ScanProgressPreviewInner() {
   }, []);
 
   const handleScanComplete = React.useCallback(() => {
-    // The demo scan just reached 100%. Give the hand-off's own "Scan
-    // complete" state a beat so it is actually visible, then continue the
-    // flow to the scan-result screen (screen 5), carrying the scanned
-    // file's metadata plus the scan's date/time. Params are only sent when
-    // present so a direct visit to /scan-progress/ keeps the hand-offs'
-    // own defaults on both screens.
+    // The scan reached 100%. Give the hand-off's own "Scan complete" state a
+    // beat so it is actually visible, then continue the flow to the
+    // scan-result screen (screen 5), carrying the scanned file's metadata,
+    // the scan's date/time and the live verdict recorded by POST
+    // /api/scan/file. Params are only sent when present so a direct visit to
+    // /scan-progress/ keeps the hand-offs' own defaults on both screens.
     const query = new URLSearchParams();
     if (fileName) query.set('file', fileName);
     if (fileType) query.set('type', fileType);
     if (fileSize) query.set('size', fileSize);
+    if (verdict) query.set('verdict', verdict);
+    if (severity) query.set('severity', severity);
+    if (threat) query.set('threat', threat);
+    if (reasons) query.set('reasons', reasons);
+    if (scanId) query.set('scanId', scanId);
     const now = new Date();
     query.set(
       'scanDate',
@@ -62,7 +75,7 @@ function ScanProgressPreviewInner() {
       () => router.push(`/scan-result/?${query.toString()}`),
       1200,
     );
-  }, [fileName, fileType, fileSize, router]);
+  }, [fileName, fileType, fileSize, verdict, severity, threat, reasons, scanId, router]);
 
   const screenProps = React.useMemo(
     () => ({

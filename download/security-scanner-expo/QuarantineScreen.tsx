@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput,
   View, useWindowDimensions,
@@ -37,16 +37,28 @@ type Props = {
   onBackHome?: () => void;
   onScanFile?: () => void;
   onViewDetails?: (file: QuarantineFile) => void;
+  /// Live rows mapped from GET /api/quarantine by the web glue. When present
+  /// (and non-empty) it replaces the hand-off's sample list.
+  files?: QuarantineFile[];
+  /// Called after the confirm dialog resolves, so the glue can hit
+  /// DELETE /api/quarantine/:id and refresh the real list.
+  onRemove?: (file: QuarantineFile, action: 'delete' | 'restore') => void;
 };
 
 export default function QuarantineScreen({
-  onBackHome, onScanFile, onViewDetails,
+  onBackHome, onScanFile, onViewDetails, files: liveFiles, onRemove,
 }: Props) {
   const { width } = useWindowDimensions();
   const desktop = width >= 950;
-  const [files, setFiles] = useState(INITIAL_FILES);
+  const [files, setFiles] = useState<QuarantineFile[]>(liveFiles ?? INITIAL_FILES);
   const [search, setSearch] = useState('');
   const [menuFor, setMenuFor] = useState<string | null>(null);
+
+  // The glue fetches /api/quarantine after mount; when the real list
+  // arrives, swap out the sample rows.
+  useEffect(() => {
+    if (liveFiles && liveFiles.length > 0) setFiles(liveFiles);
+  }, [liveFiles]);
 
   const filteredFiles = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -73,6 +85,7 @@ export default function QuarantineScreen({
         onPress: () => {
           setFiles(current => current.filter(f => f.id !== file.id));
           setMenuFor(null);
+          onRemove?.(file, action);
           if (action === 'restore') {
             Alert.alert('Demo action', 'Removed from this sample list only. No real file was restored.');
           }

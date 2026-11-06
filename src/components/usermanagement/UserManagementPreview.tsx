@@ -44,8 +44,71 @@ const SIDEBAR_NAVY = 'rgb(13, 29, 49)';
 
 const normalize = (value: string) => value.replace(/\s+/g, ' ').trim();
 
+/** Screen-side User shape (structural — the hand-off keeps its own types). */
+type LiveUser = {
+  id: string;
+  initials: string;
+  name: string;
+  email: string;
+  status: 'Active' | 'Disabled';
+  role: 'User' | 'Admin';
+  joined: string;
+  lastActive: string;
+};
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? 'U') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+}
+
+function relativeAge(iso: string): string {
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
 function UserManagementPreviewInner() {
   const router = useRouter();
+
+  // Live roster from GET /api/users (admin-gated). On 403 / network failure
+  // the hand-off keeps its sample roster, so the preview never dead-ends.
+  const [liveUsers, setLiveUsers] = React.useState<LiveUser[] | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch('/api/users/', { credentials: 'same-origin' });
+        if (!response.ok) return;
+        const data = (await response.json()) as {
+          users?: Array<{
+            id?: string; name?: string; email?: string; role?: string;
+            status?: string; joined?: string; lastActive?: string;
+          }>;
+        };
+        const rows = data.users ?? [];
+        if (cancelled || rows.length === 0) return;
+        setLiveUsers(rows.map(row => ({
+          id: row.id ?? row.email ?? '',
+          initials: initialsOf(row.name ?? 'User'),
+          name: row.name ?? 'Unknown',
+          email: row.email ?? '',
+          status: row.status === 'Disabled' ? 'Disabled' : 'Active',
+          role: row.role === 'Admin' ? 'Admin' : 'User',
+          joined: new Date(row.joined ?? Date.now()).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric',
+          }),
+          lastActive: relativeAge(row.lastActive ?? row.joined ?? new Date().toISOString()),
+        })));
+      } catch {
+        // Hand-off keeps its sample roster; nothing to do.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleBridgeClick = React.useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
@@ -161,7 +224,7 @@ function UserManagementPreviewInner() {
           z-index: 20 !important;
         }
       `}</style>
-      <ScreenLoader load={loadScreen} />
+      <ScreenLoader load={loadScreen} screenProps={{ users: liveUsers ?? undefined }} />
     </div>
   );
 }

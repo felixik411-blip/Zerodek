@@ -40,6 +40,43 @@ const normalize = (value: string) => value.replace(/\s+/g, ' ').trim();
 function RealTimeProtectionPreviewInner() {
   const router = useRouter();
 
+  // Persisted master toggle: GET /api/settings/rtp on mount feeds the
+  // screen's protectionEnabled prop, and every on/off change PUTs back so
+  // the choice survives reloads. On API failure the screen keeps its
+  // designed default (ON) and the change is simply not persisted.
+  const [protectionEnabled, setProtectionEnabled] = React.useState<boolean | undefined>(undefined);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch('/api/settings/rtp/', { credentials: 'same-origin' });
+        if (!response.ok) return;
+        const data = (await response.json()) as { enabled?: boolean };
+        if (!cancelled && typeof data.enabled === 'boolean') setProtectionEnabled(data.enabled);
+      } catch {
+        // Keep the screen's default; nothing to do.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleProtectionChange = React.useCallback((enabled: boolean) => {
+    setProtectionEnabled(enabled);
+    void (async () => {
+      try {
+        await fetch('/api/settings/rtp/', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ enabled }),
+        });
+      } catch {
+        // Screen already flipped optimistically; next load reconciles.
+      }
+    })();
+  }, []);
+
   const handleBridgeClick = React.useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
       const root = event.currentTarget;
@@ -100,7 +137,10 @@ function RealTimeProtectionPreviewInner() {
       onClickCapture={handleBridgeClick}
       style={{ flex: 1, display: 'flex', minHeight: 0 }}
     >
-      <ScreenLoader load={loadScreen} />
+      <ScreenLoader
+        load={loadScreen}
+        screenProps={{ protectionEnabled, onProtectionChange: handleProtectionChange }}
+      />
     </div>
   );
 }

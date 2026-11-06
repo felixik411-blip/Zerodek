@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView, ScrollView, View, Text, TextInput, Pressable,
   Modal, StatusBar, StyleSheet, useWindowDimensions,
@@ -31,10 +31,16 @@ const C = {
   border: "#D9E7FF", pale: "#F2F7FF", green: "#0A9C65", red: "#E52E35",
 };
 
-export default function UserManagementScreen() {
+type Props = {
+  /// Live accounts mapped from GET /api/users by the web glue. When present
+  /// (and non-empty) it replaces the hand-off's sample roster.
+  users?: User[];
+};
+
+export default function UserManagementScreen({ users: liveUsers }: Props = {}) {
   const { width } = useWindowDimensions();
   const compact = width < 900;
-  const [users, setUsers] = useState(INITIAL_USERS);
+  const [users, setUsers] = useState<User[]>(liveUsers ?? INITIAL_USERS);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"All Statuses" | Status>("All Statuses");
   const [statusMenu, setStatusMenu] = useState(false);
@@ -43,6 +49,12 @@ export default function UserManagementScreen() {
   const [selected, setSelected] = useState<User | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [notice, setNotice] = useState("");
+
+  // The glue fetches /api/users after mount; when the real roster arrives,
+  // swap out the sample rows.
+  useEffect(() => {
+    if (liveUsers && liveUsers.length > 0) setUsers(liveUsers);
+  }, [liveUsers]);
 
   const visibleUsers = useMemo(() => users.filter((u) => {
     const q = query.trim().toLowerCase();

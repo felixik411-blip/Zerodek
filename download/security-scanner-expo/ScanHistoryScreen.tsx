@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -218,12 +218,25 @@ function Sidebar({ active, onNavigate }: { active: string; onNavigate: (name: st
   );
 }
 
-export default function ScanHistoryScreen() {
+type Props = {
+  /// Live scan rows mapped from GET /api/scans by the web glue. When present
+  /// (and non-empty) it replaces the hand-off's demo snapshot, so the list
+  /// reflects what the scanner actually ran.
+  records?: ScanRecord[];
+};
+
+export default function ScanHistoryScreen({ records: liveRecords }: Props = {}) {
   const { width } = useWindowDimensions();
   const compact = width < 900;
   const [filter, setFilter] = useState<Filter>('All');
   const [search, setSearch] = useState('');
-  const [records] = useState(INITIAL_RECORDS);
+  const [records, setRecords] = useState<ScanRecord[]>(liveRecords ?? INITIAL_RECORDS);
+
+  // The glue fetches /api/scans after mount; when the real history arrives,
+  // swap out the demo snapshot.
+  useEffect(() => {
+    if (liveRecords && liveRecords.length > 0) setRecords(liveRecords);
+  }, [liveRecords]);
 
   const visibleRecords = useMemo(() => {
     const normalized = search.trim().toLowerCase();

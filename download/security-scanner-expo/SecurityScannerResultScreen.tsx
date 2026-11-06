@@ -8,6 +8,7 @@ const C = {
   bg: '#F7FAFE', text: '#172B49', muted: '#5E7599',
   border: '#E0EAF6', white: '#FFFFFF', red: '#F04444',
   paleRed: '#FFF5F5', green: '#20A36D', paleGreen: '#F0FBF7',
+  amber: '#B47B1B', paleAmber: '#FFF8E9',
 };
 
 type Props = {
@@ -16,6 +17,12 @@ type Props = {
   fileSize?: string;
   scanDate?: string;
   scanTime?: string;
+  /// Live verdict from POST /api/scan/file, forwarded by the flow glue.
+  /// Undefined keeps the hand-off's original threat-found demo, so a direct
+  /// visit to /scan-result/ still renders the designed sample.
+  verdict?: 'clean' | 'suspicious' | 'malicious';
+  threatName?: string;
+  reasons?: string[];
   onBackHome?: () => void;
   onViewQuarantine?: () => void;
   onDeletePermanently?: () => void;
@@ -28,6 +35,9 @@ export default function SecurityScannerResultScreen({
   fileSize = '2.4 MB',
   scanDate = 'Oct 30, 2025',
   scanTime = '10:24 AM',
+  verdict,
+  threatName,
+  reasons,
   onBackHome,
   onViewQuarantine,
   onDeletePermanently,
@@ -36,6 +46,54 @@ export default function SecurityScannerResultScreen({
   const { width } = useWindowDimensions();
   const desktop = width >= 1000;
   const [deleted, setDeleted] = useState(false);
+
+  // Verdict-driven presentation shared by the banner, metadata row, copy and
+  // actions, so the whole screen stays consistent for every outcome.
+  const outcome = verdict ?? 'malicious';
+  const state = outcome === 'malicious'
+    ? {
+        tone: 'red' as const,
+        title: 'Threat found',
+        description: 'This file contains malicious content and should not be opened.',
+        result: 'Threat found',
+        body: 'The file contains known malicious content (e.g., suspicious scripts) that could harm your device or steal your data.',
+        means: 'This file may be dangerous. It could try to install unwanted software, steal information, or damage your device.',
+        tip: 'Quarantining keeps it isolated so it can’t harm your device.',
+        steps: [
+          "Keep the file quarantined unless you're sure it's safe.",
+          'If you need the file, only restore it if you trust the source and understand the risk.',
+          "If you're unsure, delete it permanently.",
+        ],
+      }
+    : outcome === 'suspicious'
+      ? {
+          tone: 'amber' as const,
+          title: 'Needs your review',
+          description: 'We found suspicious signals but no confirmed threat.',
+          result: 'Needs your review',
+          body: 'The file showed risky signals (for example an unusual file type or a suspicious structure) but no signature match. Review it before opening.',
+          means: 'This file is not confirmed malware, but something about it looked off. Treat it carefully until you know where it came from.',
+          tip: 'It has been quarantined meanwhile, so it cannot run or be opened by accident.',
+          steps: [
+            'Check where the file came from before restoring it.',
+            'If you trust the source, restore it from quarantine and rescan it later.',
+            "If you're unsure, delete it permanently.",
+          ],
+        }
+      : {
+          tone: 'green' as const,
+          title: 'No threats detected',
+          description: 'This file checked out clean — it is safe to keep using.',
+          result: 'No known threat',
+          body: 'No signature matched and no risky file-type signals fired, so the file checked out clean.',
+          means: 'This file passed the scan with no known threats. You can open, share, or keep it as usual.',
+          tip: 'Even clean files can age badly — rescan anything you download a long time after saving it.',
+          steps: [
+            'No action needed — the file is safe to use.',
+            'Keep real-time protection on so future downloads are checked too.',
+            'Rescan a file whenever its source or contents change.',
+          ],
+        };
 
   const confirmDelete = () => Alert.alert(
     'Delete file permanently?',
@@ -108,11 +166,15 @@ export default function SecurityScannerResultScreen({
                     <Text style={s.bodyText}>{fileName} has been marked as deleted.</Text>
                     <Text style={s.smallNote}>Connect the delete callback to your actual file storage.</Text>
                   </View> : <>
-                    <View style={s.threatBanner}>
-                      <View style={s.alertCircle}><Text style={s.alertMark}>!</Text></View>
+                    <View style={[s.threatBanner, state.tone === 'amber' && s.bannerAmber, state.tone === 'green' && s.bannerGreen]}>
+                      <View style={[s.alertCircle, state.tone === 'amber' && s.circleAmber, state.tone === 'green' && s.circleGreen]}>
+                        {state.tone === 'green'
+                          ? <Feather name="check" size={40} color={C.white} />
+                          : <Text style={s.alertMark}>{state.tone === 'amber' ? '?' : '!'}</Text>}
+                      </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={s.threatTitle}>Threat found</Text>
-                        <Text style={s.threatDescription}>This file contains malicious content and should not be opened.</Text>
+                        <Text style={[s.threatTitle, state.tone === 'amber' && s.titleAmber, state.tone === 'green' && s.titleGreen]}>{state.title}</Text>
+                        <Text style={s.threatDescription}>{state.description}</Text>
                       </View>
                     </View>
 
@@ -135,24 +197,49 @@ export default function SecurityScannerResultScreen({
                       </View>
                       <View style={s.metaItem}>
                         <Text style={s.metaLabel}>Result</Text>
-                        <View style={s.resultValue}><Feather name="alert-circle" size={18} color={C.red} /><Text style={s.resultValueText}>Threat found</Text></View>
+                        <View style={s.resultValue}>
+                          <Feather name={state.tone === 'green' ? 'check-circle' : 'alert-circle'} size={18} color={state.tone === 'red' ? C.red : state.tone === 'amber' ? C.amber : C.green} />
+                          <Text style={[s.resultValueText, state.tone === 'amber' && { color: C.amber }, state.tone === 'green' && { color: C.green }]}>{state.result}</Text>
+                        </View>
                       </View>
                     </View>
 
                     <View style={s.whatHappened}>
                       <Text style={s.sectionTitle}>What happened?</Text>
-                      <Text style={s.bodyText}>The file contains known malicious content (e.g., suspicious scripts) that could harm your device or steal your data.</Text>
+                      <Text style={s.bodyText}>{state.body}</Text>
+                      {!!threatName && outcome === 'malicious' && (
+                        <Text style={s.threatNameText}>Detected threat: {threatName}</Text>
+                      )}
+                      {!!reasons && reasons.length > 0 && (
+                        <View style={{ marginTop: 10, gap: 6 }}>
+                          {reasons.map((reason, index) => (
+                            <View key={`${index}-${reason.slice(0, 24)}`} style={s.reasonRow}>
+                              <Text style={s.reasonBullet}>{'•'}</Text>
+                              <Text style={s.reasonText}>{reason}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
                     </View>
 
-                    <View style={s.quarantinedBanner}>
+                    {outcome !== 'clean' && <View style={s.quarantinedBanner}>
                       <MaterialCommunityIcons name="shield-minus" size={40} color={C.green} />
                       <View style={{ flex: 1 }}>
                         <Text style={s.quarantinedTitle}>This file has been quarantined.</Text>
                         <Text style={s.quarantinedText}>It's isolated and won’t run or be accessible from your device.</Text>
                       </View>
-                    </View>
+                    </View>}
 
-                    <View style={[s.actions, !desktop && s.actionsMobile]}>
+                    {outcome === 'clean' ? <View style={[s.actions, !desktop && s.actionsMobile]}>
+                      <Pressable style={s.primaryButton} onPress={onScanAnother}>
+                        <Feather name="refresh-cw" size={19} color={C.white} />
+                        <Text style={s.primaryButtonText}>Scan another file</Text>
+                      </Pressable>
+                      <Pressable style={s.outlineButton} onPress={onBackHome}>
+                        <Feather name="home" size={19} color={C.blue} />
+                        <Text style={s.outlineButtonText}>Back to Home</Text>
+                      </Pressable>
+                    </View> : <View style={[s.actions, !desktop && s.actionsMobile]}>
                       <Pressable style={s.primaryButton} onPress={onViewQuarantine}>
                         <MaterialCommunityIcons name="shield-check" size={21} color={C.white} />
                         <Text style={s.primaryButtonText}>View quarantine</Text>
@@ -162,7 +249,7 @@ export default function SecurityScannerResultScreen({
                         <Text style={s.outlineButtonText}>Delete permanently</Text>
                       </Pressable>
                       <Pressable style={s.textButton} onPress={onScanAnother}><Text style={s.textButtonText}>Scan another file</Text></Pressable>
-                    </View>
+                    </View>}
                   </>}
                 </View>
               </View>
@@ -173,10 +260,10 @@ export default function SecurityScannerResultScreen({
                     <View style={s.infoBadge}><Feather name="info" size={19} color={C.white} /></View>
                     <Text style={s.sideTitle}>What this means</Text>
                   </View>
-                  <Text style={s.sideBody}>This file may be dangerous. It could try to install unwanted software, steal information, or damage your device.</Text>
+                  <Text style={s.sideBody}>{state.means}</Text>
                   <View style={s.tipBox}>
                     <MaterialCommunityIcons name="shield-check" size={30} color={C.blue} />
-                    <Text style={s.tipText}>Quarantining keeps it isolated so it can’t harm your device.</Text>
+                    <Text style={s.tipText}>{state.tip}</Text>
                   </View>
                 </View>
 
@@ -185,11 +272,7 @@ export default function SecurityScannerResultScreen({
                     <View style={s.nextBadge}><MaterialCommunityIcons name="shield-check" size={22} color={C.navy} /></View>
                     <Text style={s.sideTitle}>Next steps</Text>
                   </View>
-                  {[
-                    "Keep the file quarantined unless you're sure it's safe.",
-                    'If you need the file, only restore it if you trust the source and understand the risk.',
-                    "If you're unsure, delete it permanently.",
-                  ].map((item, index) => <View key={item} style={s.stepRow}>
+                  {state.steps.map((item, index) => <View key={item} style={s.stepRow}>
                     <View style={s.stepNumber}><Text style={s.stepNumberText}>{index + 1}</Text></View>
                     <Text style={s.stepText}>{item}</Text>
                   </View>)}
@@ -234,9 +317,15 @@ const s = StyleSheet.create({
   mainColumnMobile: { width: '100%' },
   resultCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 26 },
   threatBanner: { flexDirection: 'row', alignItems: 'center', gap: 23, padding: 18, borderRadius: 10, borderWidth: 1, borderColor: '#FFDCDD', backgroundColor: C.paleRed },
+  bannerAmber: { borderColor: '#F0DDB0', backgroundColor: C.paleAmber },
+  bannerGreen: { borderColor: '#CBEEDD', backgroundColor: C.paleGreen },
   alertCircle: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#FF454A', alignItems: 'center', justifyContent: 'center' },
+  circleAmber: { backgroundColor: '#E0A33C' },
+  circleGreen: { backgroundColor: C.green },
   alertMark: { color: C.white, fontSize: 43, lineHeight: 48, fontWeight: '800' },
   threatTitle: { color: '#D92F2F', fontSize: 28, lineHeight: 34, fontWeight: '800' },
+  titleAmber: { color: '#8F6210' },
+  titleGreen: { color: '#157A50' },
   threatDescription: { color: C.muted, fontSize: 15, lineHeight: 23, marginTop: 4 },
   fileSummary: { flexDirection: 'row', alignItems: 'center', gap: 17, marginTop: 20, marginBottom: 16 },
   fileIconBox: { width: 79, height: 81, borderRadius: 16, backgroundColor: C.paleBlue, alignItems: 'center', justifyContent: 'center' },
@@ -250,6 +339,10 @@ const s = StyleSheet.create({
   resultValue: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   resultValueText: { color: '#E33232', fontSize: 13 },
   whatHappened: { marginTop: 27, paddingHorizontal: 2 },
+  threatNameText: { color: C.red, fontSize: 13, fontWeight: '700', marginTop: 10 },
+  reasonRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  reasonBullet: { color: C.muted, fontSize: 13, lineHeight: 21 },
+  reasonText: { color: C.muted, fontSize: 13, lineHeight: 21, flex: 1 },
   sectionTitle: { color: C.text, fontSize: 17, fontWeight: '800' },
   bodyText: { color: C.muted, fontSize: 14, lineHeight: 23, marginTop: 8 },
   quarantinedBanner: { flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 23, padding: 16, borderRadius: 9, borderWidth: 1, borderColor: '#D8F3E8', backgroundColor: C.paleGreen },

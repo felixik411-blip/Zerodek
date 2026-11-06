@@ -109,3 +109,11 @@ model PermissionAudit {
   advice     String?
   createdAt  DateTime @default(now())
 }
+
+/// Simple key-value store for app-level switches that must survive reloads —
+/// e.g. the real-time protection master toggle (screen 12).
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

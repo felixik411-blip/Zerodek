@@ -37,44 +37,140 @@ function guessType(name: string): string {
   return 'File';
 }
 
+function formatSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}
+
+type FileVerdict = {
+  id?: string;
+  verdict?: string;
+  severity?: string | null;
+  reasons?: string[];
+  threat?: { name?: string } | null;
+  error?: string;
+};
+
+/**
+ * Scans a file through POST /api/scan/file (server-side SHA-256 signature
+ * match + heuristics, persisted in the Scan table) and returns the verdict
+ * payload, or null when the service is unreachable.
+ */
+async function scanFile(file: File): Promise<FileVerdict | null> {
+  const body = new FormData();
+  body.append('file', file);
+  const response = await fetch('/api/scan/file/', {
+    method: 'POST',
+    body,
+    credentials: 'same-origin',
+  });
+  if (!response.ok) return null;
+  return (await response.json().catch(() => null)) as FileVerdict | null;
+}
+
 /**
  * Renders the React Native file-selection screen in the browser via
  * react-native-web.
  *
  * The file-selection hand-off is intentionally self-contained (no navigation
- * props), so the flow is bridged at the glue level: a capture-phase DOM
- * listener detects clicks on the element whose text is exactly "Scan selected
- * file", reads the "Selected: …" chip the hand-off renders for the chosen
- * file, and routes to the scan-progress screen with the file's metadata. With
- * nothing chosen, the hand-off's own guidance message stays in charge. The
- * hand-off component itself is not modified.
+ * props), so the flow is bridged at the glue level:
+ *
+ * - "Scan selected file" now performs a real scan: the chosen demo file is
+ *   materialized as a small sample blob and uploaded to POST /api/scan/file;
+ *   the verdict travels with the flow via query params, so the result screen
+ *   (screen 5) shows the genuine outcome instead of a fixed sample.
+ * - "Browse device" opens a real file picker; the picked file is uploaded
+ *   byte-for-byte, so dropping the EICAR test file (or any file whose
+ *   SHA-256 is in the signature table) is detected for real.
+ * - If the API is unreachable the glue shows an honest notice and stays on
+ *   the selection screen rather than fabricating a verdict.
  */
 export default function FileSelectionPreview() {
   const router = useRouter();
+
+  const runScan = React.useCallback(
+    async (name: string, file: File) => {
+      const [type, fallbackSize] = KNOWN_FILES[name] ?? [guessType(name), 'Unknown size'];
+      const size = formatSize(file.size);
+      const data = await scanFile(file);
+      if (!data?.verdict) {
+        window.alert(
+          'The scan service is unreachable right now. Please try again in a moment.',
+        );
+        return;
+      }
+      const query = new URLSearchParams({
+        file: name,
+        type,
+        size,
+        verdict: data.verdict,
+        ...(data.severity ? { severity: data.severity } : {}),
+        ...(data.threat?.name ? { threat: data.threat.name } : {}),
+        reasons: JSON.stringify(data.reasons ?? []),
+        ...(data.id ? { scanId: data.id } : {}),
+      });
+      router.push(`/scan-progress/?${query.toString()}`);
+      void fallbackSize;
+    },
+    [router],
+  );
+
+  const scanDemoFile = React.useCallback(
+    (name: string) => {
+      // Materialize the demo entry as a real sample blob so the server can
+      // hash it and run the same pipeline as a device upload.
+      const content =
+        `Zerodek Security Scanner — demo sample\n` +
+        `file: ${name}\n` +
+        `generated: ${new Date().toISOString()}\n`;
+      const blob = new Blob([content], { type: 'application/octet-stream' });
+      void runScan(name, new File([blob], name));
+    },
+    [runScan],
+  );
+
+  const browseDevice = React.useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.style.display = 'none';
+    input.addEventListener('change', () => {
+      const picked = input.files?.[0];
+      input.remove();
+      if (picked) void runScan(picked.name, picked);
+    });
+    document.body.appendChild(input);
+    input.click();
+  }, [runScan]);
 
   const handleBridgeClick = React.useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
       const root = event.currentTarget;
       let node = event.target as HTMLElement | null;
-      let hit = false;
+      let hitScan: string | null = null;
+      let hitBrowse = false;
       while (node && node !== root) {
         const text = (node.innerText || '').replace(/\s+/g, ' ').trim();
-        if (text === 'Scan selected file') hit = true;
+        if (text === 'Scan selected file') hitScan = 'scan';
+        if (text === 'Browse device') hitBrowse = true;
         node = node.parentElement;
       }
-      if (!hit) return;
-
+      if (hitBrowse) {
+        event.preventDefault();
+        event.stopPropagation();
+        browseDevice();
+        return;
+      }
+      if (!hitScan) return;
       const match = (root.innerText || '')
         .replace(/[ \t]+/g, ' ')
         .match(/Selected: (.+)/);
       if (!match) return;
-
-      const name = match[1].trim();
-      const [type, size] = KNOWN_FILES[name] ?? [guessType(name), 'Unknown size'];
-      const query = new URLSearchParams({ file: name, type, size });
-      router.push(`/scan-progress/?${query.toString()}`);
+      event.preventDefault();
+      event.stopPropagation();
+      scanDemoFile(match[1].trim());
     },
-    [router],
+    [browseDevice, scanDemoFile],
   );
 
   return (

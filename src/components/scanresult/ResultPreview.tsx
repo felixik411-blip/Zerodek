@@ -18,12 +18,32 @@ function ResultPreviewInner() {
 
   // Flow bridge: the scan-progress screen forwards the scanned file's
   // metadata via query params when it completes. Without params, the
-  // hand-off's own defaults render.
+  // hand-off's own defaults render. The live verdict recorded by POST
+  // /api/scan/file travels along the same way and is handed to the screen as
+  // props, so the banner, copy and actions reflect the real outcome.
   const fileName = params.get('file') ?? undefined;
   const fileType = params.get('type') ?? undefined;
   const fileSize = params.get('size') ?? undefined;
   const scanDate = params.get('scanDate') ?? undefined;
   const scanTime = params.get('scanTime') ?? undefined;
+  const verdictParam = params.get('verdict');
+  const verdict: 'clean' | 'suspicious' | 'malicious' | undefined =
+    verdictParam === 'clean' || verdictParam === 'suspicious' || verdictParam === 'malicious'
+      ? verdictParam
+      : undefined;
+  const threat = params.get('threat') ?? undefined;
+  const reasonsParam = params.get('reasons');
+  const reasons = React.useMemo(() => {
+    if (!reasonsParam) return undefined;
+    try {
+      const parsed = JSON.parse(reasonsParam);
+      return Array.isArray(parsed) && parsed.every(item => typeof item === 'string')
+        ? (parsed as string[])
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [reasonsParam]);
 
   const handleBackHome = React.useCallback(() => {
     // Trailing slash on purpose — see ScanProgressPreview for the redirect
@@ -53,6 +73,9 @@ function ResultPreviewInner() {
       fileSize,
       scanDate,
       scanTime,
+      verdict,
+      threatName: threat,
+      reasons,
       onBackHome: handleBackHome,
       onViewQuarantine: handleViewQuarantine,
       onDeletePermanently: handleDeletePermanently,
@@ -64,6 +87,9 @@ function ResultPreviewInner() {
       fileSize,
       scanDate,
       scanTime,
+      verdict,
+      threat,
+      reasons,
       handleBackHome,
       handleViewQuarantine,
       handleDeletePermanently,
