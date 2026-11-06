@@ -23,9 +23,8 @@ function LinkResultPreviewInner() {
   const url = params.get('url') ?? undefined;
   const checkedAt = params.get('checkedAt') ?? undefined;
   const verdictParam = params.get('verdict');
-  const verdict = verdictParam === 'clean' || verdictParam === 'suspicious' || verdictParam === 'malicious'
-    ? verdictParam
-    : undefined;
+  const VERDICTS = ['clean', 'suspicious', 'malicious'] as const;
+  const verdict = VERDICTS.find((v) => v === verdictParam);
   const severity = params.get('severity') ?? undefined;
   const reasons = React.useMemo<string[] | undefined>(() => {
     const raw = params.get('reasons');

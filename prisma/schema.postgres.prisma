@@ -1,0 +1,165 @@
+// Zerodek security scanner — PostgreSQL schema (deployment target).
+//
+// This mirrors prisma/schema.prisma field-for-field but is Postgres-native:
+//   • real ENUM types instead of free-text status/severity strings
+//   • Json column for Scan.reasons (queryable JSONB in Postgres) instead of
+//     a JSON-encoded string
+//   • BigInt for byte sizes, String @db.VarChar where length is bounded
+//   • everything timestamp-shaped lands in timestamptz (stored UTC)
+//
+// Swap-in procedure:
+//   1. Point DATABASE_URL at the cluster, e.g.
+//        DATABASE_URL="postgresql://zerodek:<pass>@<host>:5432/zerodek"
+//   2. cp prisma/schema.postgres.prisma prisma/schema.prisma
+//   3. npx prisma migrate dev --name init-postgres   (or db push)
+//   4. node scripts/seed.mjs   (unchanged — Prisma abstracts the engine)
+//
+// The sandbox has no Postgres server, so local dev keeps SQLite; every
+// query in src/lib and src/app/api is engine-agnostic Prisma, so nothing
+// else changes.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  user
+}
+
+enum ThreatKind {
+  file
+  url
+}
+
+enum ScanKind {
+  file
+  link
+}
+
+enum Verdict {
+  clean
+  suspicious
+  malicious
+}
+
+enum Severity {
+  low
+  medium
+  high
+  critical
+}
+
+enum AlertKind {
+  malware
+  intrusion
+  critical
+  system
+}
+
+enum AlertStatus {
+  open
+  resolved
+}
+
+enum ItemKind {
+  file
+  link
+}
+
+enum ItemStatus {
+  "Threat found"
+  THREAT_FOUND @map("threat_found")
+  "Suspicious"
+  SUSPICIOUS @map("suspicious")
+}
+
+enum RiskLevel {
+  low
+  medium
+  high
+}
+
+/// Account able to sign in on the admin portal (screen 13).
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  name         String?  @db.VarChar(120)
+  passwordHash String   @db.VarChar(255) // scrypt `salt:hash`, never plaintext
+  role         UserRole @default(user)
+  scans        Scan[]
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+}
+
+/// Threat signature table. For files the signature is a SHA-256 digest;
+/// for links it is a hostname (matches the host and all subdomains).
+model Threat {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  signature   String     @unique @db.VarChar(512)
+  kind        ThreatKind @default(file)
+  name        String     @db.VarChar(160)
+  severity    Severity   @default(medium)
+  description String?
+  createdAt   DateTime   @default(now()) @db.Timestamptz(6)
+}
+
+/// One completed scan. `reasons` is JSONB in Postgres — queryable with @>
+/// and indexable with a GIN index if filtering by signal is ever needed.
+model Scan {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String?    @db.Uuid
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  kind      ScanKind
+  target    String     @db.VarChar(2048)
+  sha256    String?    @db.Char(64)
+  size      BigInt?
+  verdict   Verdict
+  severity  Severity?
+  reasons   Json?
+  engine    String     @default("heuristic-v1") @db.VarChar(60)
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([kind, verdict])
+  @@index([verdict, createdAt(sort: Desc)])
+}
+
+/// Alert-stream events feeding the security-operations band.
+model Alert {
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind      AlertKind
+  severity  Severity    @default(medium)
+  message   String      @db.VarChar(500)
+  status    AlertStatus @default(open)
+  createdAt DateTime    @default(now()) @db.Timestamptz(6)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([kind, createdAt(sort: Desc)])
+}
+
+/// Item held out of reach pending a user decision (quarantine screens 8/9).
+model QuarantineItem {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String     @db.VarChar(255)
+  kind      ItemKind   @default(file)
+  reason    String     @db.VarChar(500)
+  status    ItemStatus @default(THREAT_FOUND)
+  sizeLabel String?    @db.VarChar(32)
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+}
+
+/// Privacy audit log: permission findings per app with risk scoring.
+model PermissionAudit {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  app        String    @db.VarChar(160)
+  permission String    @db.VarChar(80)
+  risk       RiskLevel @default(medium)
+  advice     String?   @db.VarChar(400)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+}

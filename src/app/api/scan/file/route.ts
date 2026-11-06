@@ -10,10 +10,12 @@ import { scanFile } from "@/lib/verdict";
  * keeps the "files stay on your phone" promise of the UI honest.
  */
 export async function POST(request: Request) {
-  let form: FormData;
-  try {
-    form = await request.formData();
-  } catch {
+  // React Native's ambient types shadow the DOM `FormData` (they declare a
+  // parts-array shape without .get), so the parsed body is viewed through a
+  // minimal structural type instead of a nominal one.
+  type FormDataLike = { get(name: string): FormDataEntryValue | null };
+  const form = (await request.formData().catch(() => null)) as unknown as FormDataLike | null;
+  if (!form) {
     return NextResponse.json(
       { error: "Send the file as multipart/form-data with a `file` field." },
       { status: 400 },
