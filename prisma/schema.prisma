@@ -1,8 +1,10 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Zerodek security scanner — Prisma schema (SQLite).
+//
+// Replaces the starter-blog User/Post models with the domain models behind
+// the scanner screens: accounts with roles, the threat signature table the
+// verdict engine matches against, scan records (files and links), the alert
+// stream that feeds the security-operations band, quarantined items and the
+// privacy permission-audit log.
 
 generator client {
   provider = "prisma-client-js"
@@ -13,20 +15,97 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Account able to sign in on the admin portal (screen 13). Passwords are
+/// stored as `scrypt` digests in `salt:hash` hex form — never plaintext.
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  /// "admin" | "user" — guards the admin-dashboard/user-management routes.
+  role         String   @default("user")
+  scans        Scan[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
-model Post {
+/// Threat signature table the verdict engine matches against. For files the
+/// signature is a SHA-256 digest; for links it is a hostname (matches the
+/// host itself and every subdomain of it).
+model Threat {
+  id          String   @id @default(cuid())
+  signature   String   @unique
+  /// "file" | "url"
+  kind        String   @default("file")
+  name        String
+  /// "low" | "medium" | "high" | "critical"
+  severity    String   @default("medium")
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+/// One completed scan (file upload or link check). `reasons` is a JSON
+/// string array so the result screens can list every signal that fired.
+model Scan {
   id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  /// "file" | "link"
+  kind      String
+  /// File name (with extension) or the checked URL.
+  target    String
+  sha256    String?
+  size      Int?
+  /// "clean" | "suspicious" | "malicious"
+  verdict   String
+  /// "low" | "medium" | "high" | "critical" (null for clean scans)
+  severity  String?
+  /// JSON string array of human-readable signals.
+  reasons   String?
+  /// Which engine version produced the verdict.
+  engine    String   @default("heuristic-v1")
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([kind, verdict])
+}
+
+/// Alert-stream events feeding the security-operations band's statistics.
+model Alert {
+  id        String   @id @default(cuid())
+  /// "malware" | "intrusion" | "critical" | "system"
+  kind      String
+  /// "low" | "medium" | "high" | "critical"
+  severity  String   @default("medium")
+  message   String
+  /// "open" | "resolved"
+  status    String   @default("open")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Item held out of reach pending a user decision (quarantine screens 8/9).
+model QuarantineItem {
+  id        String   @id @default(cuid())
+  name      String
+  /// "file" | "link"
+  kind      String   @default("file")
+  /// Why it was quarantined — shown on the details screen.
+  reason    String
+  /// "Threat found" | "Suspicious" — mirrors the screen's status chips.
+  status    String   @default("Threat found")
+  sizeLabel String?
+  createdAt DateTime @default(now())
+}
+
+/// Privacy audit log: permission findings per app with risk scoring.
+model PermissionAudit {
+  id         String   @id @default(cuid())
+  app        String
+  permission String
+  /// "low" | "medium" | "high"
+  risk       String   @default("medium")
+  advice     String?
+  createdAt  DateTime @default(now())
 }

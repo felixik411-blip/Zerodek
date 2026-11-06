@@ -59,6 +59,20 @@ export default function WelcomePreview() {
     [router],
   );
 
+  // Live-data source for the security-overview band: GET /api/stats/overview
+  // returns the DB-backed figures (scan counts, quota, gauges, alert tiles).
+  // Returning null on failure lets the screen fall back to its demo snapshot.
+  const fetchOverview = React.useCallback(
+    async (period: 'today' | 'week' | 'all') => {
+      const response = await fetch(`/api/stats/overview/?period=${period}`, {
+        credentials: 'same-origin',
+      });
+      if (!response.ok) return null;
+      return (await response.json()) as import('./SecurityScannerWelcomeScreen').LiveOverview;
+    },
+    [],
+  );
+
   return (
     <div
       style={{
@@ -72,7 +86,11 @@ export default function WelcomePreview() {
       <SafeAreaProvider initialMetrics={webInitialMetrics} style={{ flex: 1 }}>
         <ScreenLoader
           load={loadScreen}
-          screenProps={{ onGetStarted: handleGetStarted, onNavigate: handleNavigate }}
+          screenProps={{
+            onGetStarted: handleGetStarted,
+            onNavigate: handleNavigate,
+            fetchOverview,
+          }}
         />
       </SafeAreaProvider>
     </div>

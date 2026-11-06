@@ -25,25 +25,53 @@ function WebsiteLinkPreviewInner() {
 
   // The hand-off only reports a syntactically valid URL through this
   // callback ("connect it to your real URL reputation/scanning service").
-  // The link-check result screen (screen 7) now exists, so the glue layer
-  // forwards the checked URL plus the live check timestamp to it. The
-  // verdict shown there comes from the result hand-off itself.
+  // It now is one: the URL goes to POST /api/scan/link (signature table +
+  // heuristics, verdict persisted), then the glue forwards the real verdict
+  // to the link-check result screen (screen 7) via query params. If the API
+  // is unreachable the flow degrades honestly — the screen's own error row
+  // shows the network failure instead of a fabricated verdict.
+  const [checking, setChecking] = React.useState(false);
   const handleCheckLink = React.useCallback(
-    (url: string) => {
-      const now = new Date();
-      // Mirrors the hand-off's own "Oct 30, 2025  •  10:24 AM" format.
-      const checkedAt = `${now.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })}  •  ${now.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-      })}`;
-      const query = new URLSearchParams({ url, checkedAt }).toString();
-      // Trailing slash on purpose — see ScanProgressPreview for the
-      // redirect loop rationale.
-      router.push(`/link-scan-result/?${query}`);
+    async (url: string) => {
+      setChecking(true);
+      try {
+        const response = await fetch('/api/scan/link/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ url }),
+        });
+        const data = (await response.json().catch(() => null)) as
+          | { verdict?: string; severity?: string | null; reasons?: string[]; checkedAt?: string; error?: string }
+          | null;
+
+        if (!response.ok || !data?.verdict) {
+          throw new Error(data?.error ?? 'The scan service is unreachable right now.');
+        }
+
+        const checked = new Date(data.checkedAt ?? Date.now());
+        // Mirrors the hand-off's own "Oct 30, 2025  •  10:24 AM" format.
+        const checkedAt = `${checked.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })}  •  ${checked.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+        })}`;
+        const query = new URLSearchParams({
+          url,
+          checkedAt,
+          verdict: data.verdict,
+          ...(data.severity ? { severity: data.severity } : {}),
+          reasons: JSON.stringify(data.reasons ?? []),
+        }).toString();
+        // Trailing slash on purpose — see ScanProgressPreview for the
+        // redirect loop rationale.
+        router.push(`/link-scan-result/?${query}`);
+      } finally {
+        setChecking(false);
+      }
     },
     [router],
   );

@@ -16,11 +16,27 @@ function LinkResultPreviewInner() {
   const router = useRouter();
   const params = useSearchParams();
 
-  // Flow bridge: the website-link screen forwards the checked URL and the
-  // check timestamp via query params. Without params, the hand-off's own
-  // defaults render.
+  // Flow bridge: the website-link screen forwards the checked URL, the
+  // check timestamp AND the real engine verdict (POST /api/scan/link runs
+  // before navigation) via query params. Without params, the hand-off's own
+  // danger-demo defaults render.
   const url = params.get('url') ?? undefined;
   const checkedAt = params.get('checkedAt') ?? undefined;
+  const verdictParam = params.get('verdict');
+  const verdict = verdictParam === 'clean' || verdictParam === 'suspicious' || verdictParam === 'malicious'
+    ? verdictParam
+    : undefined;
+  const severity = params.get('severity') ?? undefined;
+  const reasons = React.useMemo<string[] | undefined>(() => {
+    const raw = params.get('reasons');
+    if (!raw) return undefined;
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((r): r is string => typeof r === 'string') : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [params]);
 
   const handleBackHome = React.useCallback(() => {
     // Trailing slash on purpose — see ScanProgressPreview for the redirect
@@ -38,10 +54,13 @@ function LinkResultPreviewInner() {
     () => ({
       url,
       checkedAt,
+      verdict,
+      severity,
+      reasons,
       onBackHome: handleBackHome,
       onCheckAnotherLink: handleCheckAnotherLink,
     }),
-    [url, checkedAt, handleBackHome, handleCheckAnotherLink],
+    [url, checkedAt, verdict, severity, reasons, handleBackHome, handleCheckAnotherLink],
   );
 
   return <ScreenLoader load={loadScreen} screenProps={screenProps} />;

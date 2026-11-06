@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Keyboard, Pressable, ScrollView, StatusBar, StyleSheet, Text,
+  ActivityIndicator, Keyboard, Pressable, ScrollView, StatusBar, StyleSheet, Text,
   TextInput, View, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,7 +15,8 @@ const C = {
 
 type Props = {
   onBackHome?: () => void;
-  onCheckLink?: (url: string) => void;
+  /** Real backend check: awaited so failures surface in the error row. */
+  onCheckLink?: (url: string) => Promise<void> | void;
 };
 
 const EXAMPLES = [
@@ -29,6 +30,7 @@ export default function WebsiteLinkScreen({ onBackHome, onCheckLink }: Props) {
   const desktop = width >= 900;
   const [url, setUrl] = useState('');
   const [attempted, setAttempted] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [error, setError] = useState('Please enter a valid URL (e.g. https://example.com)');
 
   const isValidUrl = (value: string) => {
@@ -40,7 +42,7 @@ export default function WebsiteLinkScreen({ onBackHome, onCheckLink }: Props) {
     }
   };
 
-  const checkLink = () => {
+  const checkLink = async () => {
     Keyboard.dismiss();
     setAttempted(true);
     const value = url.trim();
@@ -52,7 +54,17 @@ export default function WebsiteLinkScreen({ onBackHome, onCheckLink }: Props) {
 
     setError('');
     // Connect this callback to your actual URL reputation/scanning service.
-    onCheckLink?.(value);
+    // The web bridge runs the real scan (POST /api/scan/link) and navigates
+    // to the result; any failure lands in the same error row rather than a
+    // fabricated verdict.
+    setChecking(true);
+    try {
+      await onCheckLink?.(value);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong while checking the link.');
+    } finally {
+      setChecking(false);
+    }
   };
 
   const pasteLink = async () => {
@@ -163,9 +175,20 @@ export default function WebsiteLinkScreen({ onBackHome, onCheckLink }: Props) {
                 </View>
               )}
 
-              <Pressable style={s.checkButton} onPress={checkLink}>
-                <Feather name="search" size={19} color={C.white} />
-                <Text style={s.checkButtonText}>Check link</Text>
+              <Pressable
+                style={s.checkButton}
+                onPress={checkLink}
+                disabled={checking}
+                accessibilityRole="button"
+                accessibilityLabel="Check link"
+                accessibilityState={{ busy: checking }}
+              >
+                {checking ? (
+                  <ActivityIndicator size="small" color={C.white} />
+                ) : (
+                  <Feather name="search" size={19} color={C.white} />
+                )}
+                <Text style={s.checkButtonText}>{checking ? 'Checking…' : 'Check link'}</Text>
               </Pressable>
 
               <View style={s.infoBox}>

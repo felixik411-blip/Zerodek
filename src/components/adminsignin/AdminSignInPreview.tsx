@@ -14,19 +14,45 @@ const loadScreen = () => import('./AdminSignInScreen');
 /**
  * Screen 13 exposes its integrations as props by design (the brief says
  * authentication and password recovery are injected callbacks, not routes),
- * so the preview simply wires those props — no DOM bridging needed.
+ * so the preview wires those props to the real backend:
+ *
+ * - `onSignIn` POSTs the credentials to /api/auth/login, which validates
+ *   them against the seeded `User` table (scrypt digests) and sets a signed
+ *   httpOnly session cookie. Success lands on the admin dashboard; the
+ *   screen's own inline error state shows the API's message on failure.
+ * - `onForgotPassword` routes to the existing Help & About screen — the
+ *   app's support surface (no password-recovery screen exists by brief).
  */
 function AdminSignInPreviewInner() {
   const router = useRouter();
 
-  const handleSignIn = React.useCallback(async () => {
-    // Integration point only: no real authentication service exists in this
-    // preview. A short artificial delay lets the loading / disabled state be
-    // exercised, then the callback rejects and the screen shows its inline
-    // error — it never reports a fake success.
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    throw new Error('admin authentication is not connected in this preview.');
-  }, []);
+  const handleSignIn = React.useCallback(
+    async (credentials: { emailOrUsername: string; password: string }) => {
+      const response = await fetch('/api/auth/login/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          email: credentials.emailOrUsername,
+          password: credentials.password,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { error?: string; user?: { role: string } }
+        | null;
+
+      if (!response.ok || !data?.user) {
+        // Rejecting makes the screen show its own inline error — it never
+        // reports a fake success.
+        throw new Error(data?.error ?? 'Sign-in failed. Please try again.');
+      }
+      // Trailing slash on purpose — the preview proxy 301-redirects
+      // extension-less paths and a redirect here would fall back to a full
+      // page load.
+      router.push('/admin-dashboard/');
+    },
+    [router],
+  );
 
   const handleForgotPassword = React.useCallback(() => {
     // No password-recovery screen exists yet (the brief says not to invent

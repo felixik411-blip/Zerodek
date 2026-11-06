@@ -143,6 +143,31 @@ type OpsAlert = {
 const OPS_SEVERITY = 76;
 const OPS_HEALTH = 92;
 
+/**
+ * Live figures returned by GET /api/stats/overview. The web preview passes
+ * a `fetchOverview` callback; the screen overlays these values on top of
+ * the demo constants and falls back to them whenever the API is missing or
+ * unreachable (e.g. the Expo app running standalone).
+ */
+export type LiveOverview = {
+  cards: {
+    scansCompleted: number;
+    threatsBlocked: number;
+    linksChecked: number;
+    quota: { used: number; total: number };
+  };
+  ops: {
+    severityIndex: number;
+    health: number;
+    alerts: {
+      total: { value: number; spark: number[] };
+      critical: { value: number; spark: number[] };
+      intrusion: { value: number; spark: number[] };
+      malware: { value: number; spark: number[] };
+    };
+  };
+};
+
 const OPS_ALERTS: OpsAlert[] = [
   {
     id: 'total',
@@ -518,11 +543,19 @@ type SecurityScannerWelcomeScreenProps = {
    * notice instead of pretending a route change happened.
    */
   onNavigate?: (target: NavTarget) => void;
+  /**
+   * Optional live-data source for the security-overview band. Receives the
+   * selected period ('today' | 'week' | 'all') and resolves to the figures
+   * from GET /api/stats/overview, or null when the backend is unreachable
+   * (the screen then keeps showing the demo snapshot). Omitted on Expo.
+   */
+  fetchOverview?: (period: Period) => Promise<LiveOverview | null>;
 };
 
 export default function SecurityScannerWelcomeScreen({
   onGetStarted,
   onNavigate,
+  fetchOverview,
 }: SecurityScannerWelcomeScreenProps) {
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
@@ -542,6 +575,9 @@ export default function SecurityScannerWelcomeScreen({
   const [lastUpdated, setLastUpdated] = React.useState('2 min ago');
   const [liveProtection, setLiveProtection] = React.useState(true);
   const [navNotice, setNavNotice] = React.useState<string | null>(null);
+  // Live figures from the scanner backend (web preview only). null = demo
+  // snapshot — the screen never fabricates numbers it does not have.
+  const [live, setLive] = React.useState<LiveOverview | null>(null);
   const refreshTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const navTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -582,6 +618,45 @@ export default function SecurityScannerWelcomeScreen({
 
   const snapshot = OVERVIEW[period];
 
+  // Live-data overlay: refetch whenever the period changes (and once on
+  // mount). Failures keep the demo snapshot — silent by design, the UI
+  // simply continues to work offline.
+  React.useEffect(() => {
+    if (!fetchOverview) return;
+    let cancelled = false;
+    fetchOverview(period)
+      .then((data) => {
+        if (!cancelled && data) setLive(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchOverview, period]);
+
+  const scansValue = live?.cards.scansCompleted ?? snapshot.scans;
+  const threatsValue = live?.cards.threatsBlocked ?? snapshot.threats;
+  const linksValue = live?.cards.linksChecked ?? snapshot.links;
+  const quotaUsed = live?.cards.quota.used ?? QUOTA.used;
+  const quotaTotal = live?.cards.quota.total ?? QUOTA.total;
+  const opsSeverityValue = live?.ops.severityIndex ?? OPS_SEVERITY;
+  const opsHealthValue = live?.ops.health ?? OPS_HEALTH;
+  // Alert tiles keep their demo tone/target/spark shape; live values (and
+  // sparklines, when the API sends a full 10-point series) overlay on top.
+  const opsAlertsValue = React.useMemo<OpsAlert[]>(() => {
+    if (!live) return OPS_ALERTS;
+    const liveAlerts = live.ops.alerts;
+    return OPS_ALERTS.map((alert) => {
+      const match = liveAlerts[alert.id as keyof typeof liveAlerts];
+      if (!match) return alert;
+      return {
+        ...alert,
+        value: match.value,
+        spark: match.spark.length === 10 ? match.spark : alert.spark,
+      };
+    });
+  }, [live]);
+
   const handleNavigate = (target: NavTarget) => {
     if (onNavigate) {
       onNavigate(target);
@@ -601,6 +676,15 @@ export default function SecurityScannerWelcomeScreen({
       return;
     }
     setRefreshing(true);
+    // Pull fresh backend figures when the live source is connected; the
+    // timer keeps the same feedback rhythm in the offline/demo mode.
+    if (fetchOverview) {
+      fetchOverview(period)
+        .then((data) => {
+          if (data) setLive(data);
+        })
+        .catch(() => {});
+    }
     refreshTimerRef.current = setTimeout(() => {
       setRefreshing(false);
       setLastUpdated('just now');
@@ -772,7 +856,7 @@ export default function SecurityScannerWelcomeScreen({
           <View style={styles.statGrid}>
             <StatCard
               icon="magnify"
-              value={String(snapshot.scans)}
+              value={String(scansValue)}
               label="Scans completed"
               detail={snapshot.scansDelta}
               narrow={!isWide}
@@ -780,7 +864,7 @@ export default function SecurityScannerWelcomeScreen({
             />
             <StatCard
               icon="shield-alert-outline"
-              value={String(snapshot.threats)}
+              value={String(threatsValue)}
               label="Threats blocked"
               detail={snapshot.threatsDetail}
               narrow={!isWide}
@@ -788,7 +872,7 @@ export default function SecurityScannerWelcomeScreen({
             />
             <StatCard
               icon="link-variant"
-              value={String(snapshot.links)}
+              value={String(linksValue)}
               label="Links checked"
               detail={snapshot.linksDetail}
               narrow={!isWide}
@@ -796,7 +880,7 @@ export default function SecurityScannerWelcomeScreen({
             />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Scans remaining: ${QUOTA.total - QUOTA.used} of ${QUOTA.total}`}
+              accessibilityLabel={`Scans remaining: ${quotaTotal - quotaUsed} of ${quotaTotal}`}
               onPress={() => handleNavigate('settings')}
               style={({ pressed }) => [
                 styles.statCard,
@@ -807,18 +891,18 @@ export default function SecurityScannerWelcomeScreen({
               <View style={styles.statIcon}>
                 <MaterialCommunityIcons name="gauge" size={24} color={C.blue} />
               </View>
-              <Text style={styles.statValue}>{QUOTA.total - QUOTA.used}</Text>
+              <Text style={styles.statValue}>{quotaTotal - quotaUsed}</Text>
               <Text style={styles.statLabel}>Scans remaining</Text>
               <View style={styles.quotaTrack}>
                 <View
                   style={[
                     styles.quotaFill,
-                    { width: `${Math.round((QUOTA.used / QUOTA.total) * 100)}%` },
+                    { width: `${Math.round((quotaUsed / quotaTotal) * 100)}%` },
                   ]}
                 />
               </View>
               <Text style={styles.statDetail}>
-                {QUOTA.used} of {QUOTA.total} used this month
+                {quotaUsed} of {quotaTotal} used this month
               </Text>
             </Pressable>
           </View>
@@ -962,7 +1046,7 @@ export default function SecurityScannerWelcomeScreen({
           <View style={[styles.opsGrid, !isWide && styles.opsColumn]}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Threat severity ${OPS_SEVERITY} percent. Opens threat information.`}
+              accessibilityLabel={`Threat severity ${opsSeverityValue} percent. Opens threat information.`}
               onPress={() => handleNavigate('threat-information')}
               style={({ pressed }) => [
                 styles.opsCard,
@@ -971,7 +1055,7 @@ export default function SecurityScannerWelcomeScreen({
               ]}
             >
               <Text style={styles.opsCardTitle}>Threat severity</Text>
-              <ArcGauge kind="threat" value={OPS_SEVERITY} progress={opsProgress} size={isWide ? 208 : 178} />
+              <ArcGauge kind="threat" value={opsSeverityValue} progress={opsProgress} size={isWide ? 208 : 178} />
               <View style={styles.opsLegend}>
                 <Text style={styles.opsLegendText}>Low</Text>
                 <Text style={styles.opsLegendText}>High</Text>
@@ -980,7 +1064,7 @@ export default function SecurityScannerWelcomeScreen({
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`System health ${OPS_HEALTH} percent, normal. Opens the system health screen.`}
+              accessibilityLabel={`System health ${opsHealthValue} percent, normal. Opens the system health screen.`}
               onPress={() => handleNavigate('system-health')}
               style={({ pressed }) => [
                 styles.opsCard,
@@ -989,14 +1073,14 @@ export default function SecurityScannerWelcomeScreen({
               ]}
             >
               <Text style={styles.opsCardTitle}>System health</Text>
-              <ArcGauge kind="health" value={OPS_HEALTH} progress={opsProgress} size={isWide ? 208 : 178} />
+              <ArcGauge kind="health" value={opsHealthValue} progress={opsProgress} size={isWide ? 208 : 178} />
               <Text style={styles.opsNote}>All services operational · 99.98% uptime</Text>
             </Pressable>
 
             <View style={[styles.opsCard, !isWide && styles.opsCardNarrow]}>
               <Text style={styles.opsCardTitle}>Alert statistics</Text>
               <View style={styles.alertGrid}>
-                {OPS_ALERTS.map((alert) => (
+                {opsAlertsValue.map((alert) => (
                   <AlertTile
                     key={alert.id}
                     alert={alert}
@@ -1009,7 +1093,9 @@ export default function SecurityScannerWelcomeScreen({
           </View>
 
           <Text style={styles.opsFootnote}>
-            Illustrative figures from the demo snapshot — not live monitoring output.
+            {live
+              ? 'Live figures from the scanner database · engine heuristic-v1.'
+              : 'Illustrative figures from the demo snapshot — not live monitoring output.'}
           </Text>
         </View>
       </ScrollView>

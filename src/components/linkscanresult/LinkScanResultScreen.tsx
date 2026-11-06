@@ -14,22 +14,69 @@ const C = {
   paleRed: '#FFF6F6', green: '#1EB578',
 };
 
+type Verdict = 'clean' | 'suspicious' | 'malicious';
+
 type Props = {
   url?: string;
   checkedAt?: string;
+  /** Real engine verdict (POST /api/scan/link). Defaults to the hand-off's danger demo. */
+  verdict?: Verdict;
+  severity?: string;
+  /** Human-readable signals returned by the engine; rendered in Scan details. */
+  reasons?: string[];
   onBackHome?: () => void;
   onCheckAnotherLink?: () => void;
+};
+
+/** Verdict-dependent copy and palette for the banner, warning box and rows. */
+const VERDICT_META: Record<Verdict, {
+  bannerBg: string; bannerBorder: string; iconBg: string; titleColor: string;
+  title: string; subtitle: string;
+  warningTitle: string; warningText: string;
+  resultLabel: string; openAlert: string;
+}> = {
+  malicious: {
+    bannerBg: '#FFF6F6', bannerBorder: '#FFDCDD', iconBg: C.red, titleColor: '#D92E30',
+    title: 'Likely dangerous',
+    subtitle: 'This link shows signs of a known malicious site. Do not open it.',
+    warningTitle: "We recommend you don't open this link.",
+    warningText: 'It may lead to a fake website, try to steal your information, or install harmful software.',
+    resultLabel: 'Likely dangerous',
+    openAlert: 'This link was flagged as potentially dangerous. It has not been opened.',
+  },
+  suspicious: {
+    bannerBg: '#FFF7EA', bannerBorder: '#FFE1B0', iconBg: '#F59E0B', titleColor: '#B45309',
+    title: 'Suspicious',
+    subtitle: 'We found warning signs on this link. Be careful before opening it.',
+    warningTitle: 'Think twice before opening this link.',
+    warningText: 'It hides its final destination or shows phishing-like patterns. Only continue if you trust it.',
+    resultLabel: 'Suspicious',
+    openAlert: 'This link was flagged as suspicious. It has not been opened.',
+  },
+  clean: {
+    bannerBg: '#EDFAF3', bannerBorder: '#BFE8D2', iconBg: C.green, titleColor: '#0F8A5F',
+    title: 'No dangers found',
+    subtitle: "We didn't find any signs of a malicious or suspicious site.",
+    warningTitle: 'Safe to open — as far as we can tell.',
+    warningText: 'Nothing suspicious was detected. No check can guarantee a site is safe, so stay alert.',
+    resultLabel: 'Looks safe',
+    openAlert: 'No dangers were found for this link. It has not been opened.',
+  },
 };
 
 export default function LinkScanResultScreen({
   url = 'https://malicious-site.fake',
   checkedAt = 'Oct 30, 2025  •  10:24 AM',
+  verdict = 'malicious',
+  severity,
+  reasons,
   onBackHome,
   onCheckAnotherLink,
 }: Props) {
   const { width } = useWindowDimensions();
   const desktop = width >= 900;
   const [copied, setCopied] = useState(false);
+  const meta = VERDICT_META[verdict];
 
   const hostname = (() => {
     try {
@@ -103,11 +150,17 @@ export default function LinkScanResultScreen({
             </View>
 
             <View style={s.resultCard}>
-              <View style={s.dangerBanner}>
-                <View style={s.dangerIcon}><Feather name="alert-circle" size={38} color={C.white} /></View>
+              <View style={[s.dangerBanner, { backgroundColor: meta.bannerBg, borderColor: meta.bannerBorder }]}>
+                <View style={[s.dangerIcon, { backgroundColor: meta.iconBg }]}>
+                  {verdict === 'clean' ? (
+                    <Feather name="check-circle" size={38} color={C.white} />
+                  ) : (
+                    <Feather name="alert-circle" size={38} color={C.white} />
+                  )}
+                </View>
                 <View style={s.dangerCopy}>
-                  <Text style={s.dangerTitle}>Likely dangerous</Text>
-                  <Text style={s.dangerSubtitle}>This link shows signs of a known malicious site. Do not open it.</Text>
+                  <Text style={[s.dangerTitle, { color: meta.titleColor }]}>{meta.title}</Text>
+                  <Text style={s.dangerSubtitle}>{meta.subtitle}</Text>
                 </View>
               </View>
 
@@ -119,7 +172,7 @@ export default function LinkScanResultScreen({
                     <Pressable
                       accessibilityLabel="Open link in browser"
                       style={s.externalButton}
-                      onPress={() => Alert.alert('Caution', 'This link was flagged as potentially dangerous. It has not been opened.')}
+                      onPress={() => Alert.alert('Caution', meta.openAlert)}
                     >
                       <Feather name="external-link" size={17} color={C.muted} />
                     </Pressable>
@@ -133,10 +186,14 @@ export default function LinkScanResultScreen({
                     <Text style={s.domainText}>{hostname}</Text>
                   </View>
                   <View style={s.warningBox}>
-                    <Feather name="alert-triangle" size={19} color={C.red} />
+                    <Feather
+                      name={verdict === 'clean' ? 'shield' : 'alert-triangle'}
+                      size={19}
+                      color={verdict === 'clean' ? C.green : verdict === 'suspicious' ? '#F59E0B' : C.red}
+                    />
                     <View style={s.warningCopy}>
-                      <Text style={s.warningTitle}>We recommend you don't open this link.</Text>
-                      <Text style={s.warningText}>It may lead to a fake website, try to steal your information, or install harmful software.</Text>
+                      <Text style={[s.warningTitle, { color: verdict === 'clean' ? '#0F8A5F' : verdict === 'suspicious' ? '#B45309' : '#E02F32' }]}>{meta.warningTitle}</Text>
+                      <Text style={s.warningText}>{meta.warningText}</Text>
                     </View>
                   </View>
                 </View>
@@ -166,8 +223,14 @@ export default function LinkScanResultScreen({
                     <View style={s.detailRow}>
                       <Text style={s.detailLabel}>Result</Text>
                       <View style={s.resultValue}>
-                        <Feather name="alert-circle" size={17} color={C.red} />
-                        <Text style={s.resultValueText}>Likely dangerous</Text>
+                        <Feather
+                          name={verdict === 'clean' ? 'check-circle' : 'alert-circle'}
+                          size={17}
+                          color={verdict === 'clean' ? C.green : verdict === 'suspicious' ? '#F59E0B' : C.red}
+                        />
+                        <Text style={[s.resultValueText, { color: verdict === 'clean' ? C.green : verdict === 'suspicious' ? '#B45309' : C.red }]}>
+                          {meta.resultLabel}{severity && verdict !== 'clean' ? ` · ${severity}` : ''}
+                        </Text>
                       </View>
                     </View>
                     <View style={s.detailRow}>
@@ -180,6 +243,23 @@ export default function LinkScanResultScreen({
                     <Text style={s.detailValueDark}>URL check</Text>
                     <Text style={[s.detailLabel, { marginTop: 18 }]}>What was checked</Text>
                     <Text style={s.description}>The link's domain, reputation and known malicious indicators.</Text>
+                    {reasons && reasons.length > 0 && (
+                      <>
+                        <Text style={[s.detailLabel, { marginTop: 18 }]}>What we found</Text>
+                        <View style={{ marginTop: 6, gap: 7 }}>
+                          {reasons.slice(0, 5).map((reason) => (
+                            <View key={reason} style={{ flexDirection: 'row', gap: 8, maxWidth: 320 }}>
+                              <Feather
+                                name={verdict === 'clean' ? 'check-circle' : 'alert-circle'}
+                                size={14}
+                                color={verdict === 'clean' ? C.green : verdict === 'suspicious' ? '#F59E0B' : C.red}
+                              />
+                              <Text style={[s.description, { marginTop: 0, flex: 1 }]}>{reason}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </>
+                    )}
                   </View>
                 </View>
               </View>
